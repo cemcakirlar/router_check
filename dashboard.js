@@ -8,7 +8,7 @@ const COMMANDS = [
     "realtime_rx_thrpt", "monthly_rx_bytes", "monthly_tx_bytes", "monthly_time",
     "imei", "msisdn", "cr_version", "wa_version", "hardware_version",
     "lan_ipaddr", "mac_address", "wan_ipaddr", "ppp_status",
-    "battery_pers", "battery_charging", "wifi_access_sta_num",
+    "wifi_access_sta_num",
     "sms_unread_num",
     "host_name_web", "mac_addr_web", "ip_addr_web", "lan_netmask", 
     "dhcpEnabled", "guest_dhcpEnabled"
@@ -52,6 +52,14 @@ async function login() {
 }
 
 async function logout() {
+    // Turn off auto refresh on logout
+    const autoRefresh = document.getElementById('autoRefresh');
+    if (autoRefresh && autoRefresh.checked) {
+        autoRefresh.checked = false;
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+
     try {
         const response = await fetch('/api/logout');
         const result = await response.json();
@@ -108,6 +116,7 @@ function clearUI(message) {
     document.getElementById('rsrpFill').style.width = "0%";
     document.getElementById('sinrFill').style.width = "0%";
     document.getElementById('cellId').innerText = "--";
+    document.getElementById('earfcn').innerText = "--";
     document.getElementById('signalAnalysis').innerHTML = "No active session";
 
     // Info
@@ -140,7 +149,7 @@ function clearUI(message) {
     document.getElementById('mac').innerText = "--";
     document.getElementById('staticIpTableBody').innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-dim);">No static reservations</td></tr>';
 
-    // Battery & Misc
+    // Misc
     document.getElementById('smsCount').innerText = "0";
     document.getElementById('wifiCount').innerText = "0";
 
@@ -248,6 +257,7 @@ function updateUI(data, stationData, staticData, loginSuccess) {
     // System Stats
     document.getElementById('smsCount').innerText = data.sms_unread_num || "0";
     document.getElementById('cellId').innerText = data.cell_id || "--";
+    document.getElementById('earfcn').innerText = data.Z_dl_earfcn || "--";
     document.getElementById('wifiCount').innerText = data.wifi_access_sta_num || "0";
 
     // Stations
@@ -337,14 +347,6 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
     btn.disabled = false
     btn.innerText = success ? "LOGOUT" : "FAILED";
     
-    // Turn off auto refresh on logout
-    const autoRefresh = document.getElementById('autoRefresh');
-    if (autoRefresh.checked) {
-        autoRefresh.checked = false;
-        if (refreshInterval) clearInterval(refreshInterval);
-        refreshInterval = null;
-    }
-
     // After logout, refresh will show Auth Required
     updateUI(null, null, false);
     

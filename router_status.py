@@ -34,7 +34,7 @@ COMMANDS = [
     
     # Usage
     "realtime_tx_bytes", "realtime_rx_bytes", "realtime_tx_thrpt", 
-    "realtime_rx_thrpt", "battery_vol_percent", "simcard_roam",
+    "realtime_rx_thrpt", "simcard_roam",
     
     # WiFi Settings
     "wifi_onoff_state", "m_ssid_enable", "m_SSID2", "m_HideSSID", "wifi_enable", "RadioOff",
@@ -50,8 +50,8 @@ COMMANDS = [
     "monthly_rx_bytes", "monthly_tx_bytes", "monthly_time", "date_month",
     "data_volume_limit_switch", "data_volume_limit_size", "data_volume_alert_percent", "data_volume_limit_unit",
     
-    # NEW: Battery & System
-    "battery_charging", "battery_value", "battery_pers", "pin_status", 
+    # NEW: System
+    "pin_status", 
     "new_version_state", "current_upgrade_state", "is_mandatory",
     "ppp_dial_conn_fail_counter", "dial_mode", "wifi_dfs_status",
     
@@ -102,10 +102,6 @@ LABELS = {
     "realtime_rx_bytes": "Total Downloaded",
     "realtime_tx_thrpt": "Current Upload Speed",
     "realtime_rx_thrpt": "Current Download Speed",
-    "battery_vol_percent": "Battery Level (%)",
-    "battery_charging": "Battery Charging Status",
-    "battery_value": "Battery Voltage",
-    "battery_pers": "Battery Percentage",
     "monthly_rx_bytes": "Monthly Download",
     "monthly_tx_bytes": "Monthly Upload",
     "data_volume_limit_size": "Data Limit Size",
@@ -128,8 +124,7 @@ def login():
             "isTest": "false",
             "goformId": "LOGIN_MULTI_USER",
             "user": "admin",
-            "password": enc_pass,
-            "AD": "08110e07fae97cfd2d2314078ab631cf" # We'll try this token from your payload
+            "password": enc_pass
         }
         
         # 1. Attempt login
@@ -175,6 +170,19 @@ def get_station_list():
         return response.json()
     except Exception as e:
         print(f"Failed to fetch station list: {e}")
+        return None
+
+def get_static_ip_list():
+    try:
+        params = {
+            "isTest": "false",
+            "cmd": "current_static_addr_list",
+            "_": int(time.time() * 1000)
+        }
+        response = session.get(f"{BASE_URL}/goform_get_cmd_process", params=params, headers=HEADERS, timeout=5)
+        return response.json()
+    except Exception as e:
+        print(f"Failed to fetch static IP list: {e}")
         return None
 
 def analyze_signal(data):
@@ -269,6 +277,26 @@ def print_station_list(station_data):
         mac = s.get("mac_addr", "N/A")
         print(f"{name:<20} | {ip:<15} | {mac:<17}")
 
+def print_static_ip_list(static_data):
+    if not static_data:
+        return
+        
+    static_list = static_data.get("current_static_addr_list")
+    if not static_list or not isinstance(static_list, list):
+        return
+        
+    print("\n" + "-"*50)
+    print(f"{'STATIC IP RESERVATIONS':^50}")
+    print("-"*50)
+    print(f"{'Hostname':<20} | {'IP Address':<15} | {'MAC Address':<17}")
+    print("-"*50)
+    
+    for s in static_list:
+        name = s.get("hostname", "--")
+        ip = s.get("ip", "N/A")
+        mac = s.get("mac", "N/A")
+        print(f"{name:<20} | {ip:<15} | {mac:<17}")
+
 if __name__ == "__main__":
     if login():
         data = get_router_data()
@@ -291,6 +319,10 @@ if __name__ == "__main__":
             # Fetch and print station list separately
             station_data = get_station_list()
             print_station_list(station_data)
+            
+            # Fetch and print static IP list
+            static_data = get_static_ip_list()
+            print_static_ip_list(static_data)
             
             analyze_signal(data)
             print("="*50 + "\n")

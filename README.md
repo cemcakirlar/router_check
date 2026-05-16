@@ -4,7 +4,7 @@ A modern web dashboard and CLI monitoring tool for ZTE mobile routers (specifica
 
 ## Features
 
-- **Real-time Monitoring**: Track signal strength (RSRP, RSRQ, SINR), data usage, and battery status.
+- **Real-time Monitoring**: Track signal strength (RSRP, RSRQ, SINR) and data usage.
 - **Modern Web UI**: A glassmorphism-inspired dashboard with smooth animations and responsive design.
 - **CLI Reports**: Quick terminal-based reports with signal quality analysis and connected device lists.
 - **Bypass CORS**: Includes a local proxy server to communicate with the router without browser security restrictions.

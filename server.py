@@ -38,6 +38,27 @@ HEADERS = {
 # We'll use a cookie jar to maintain session cookies (like requests.Session does)
 cookie_jar = http.cookies.SimpleCookie()
 stored_cookies = {}
+last_state = {
+    "data": {},
+    "stations": None,
+    "static_ips": None
+}
+
+
+def log_diff(label, old_data, new_data):
+    """Log only the fields that have changed between old_data and new_data."""
+    if old_data is None:
+        # First time seeing this data type
+        return
+        
+    if isinstance(new_data, dict):
+        changes = {k: v for k, v in new_data.items() if k not in old_data or old_data[k] != v}
+        # Filter out extremely noisy fields if needed, but for now let's show all changes
+        if changes:
+            print(f"  Δ {label} changed: {changes}")
+    elif isinstance(new_data, list):
+        if old_data != new_data:
+            print(f"  Δ {label} list changed ({len(new_data)} items)")
 
 
 def make_request(url, data=None, method="GET"):
@@ -69,8 +90,8 @@ def make_request(url, data=None, method="GET"):
                 k, v = parts.split("=", 1)
                 stored_cookies[k.strip()] = v.strip()
         
-        if stored_cookies:
-            print(f"  → Stored Cookies: {stored_cookies}")
+        # if stored_cookies:
+        #     print(f"  → Stored Cookies: {stored_cookies}")
 
         body = response.read().decode("utf-8")
         
@@ -162,8 +183,9 @@ def do_fetch_static_ips():
 
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        """Custom log format."""
-        print(f"  [{self.address_string()}] {format % args}")
+        """Custom log format. Only logs login and logout requests."""
+        if any(x in self.path for x in ["login", "logout"]):
+            print(f"  [{self.address_string()}] {format % args}")
 
     def send_json(self, data, status=200):
         self.send_response(status)
@@ -207,9 +229,11 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
             commands = qs.get("cmd", [""])[0]
-            print(f"  → Proxying DATA request...")
+            # print(f"  → Proxying DATA request...")
             result = do_fetch_data(commands)
             if result:
+                log_diff("DATA", last_state["data"], result)
+                last_state["data"].update(result)
                 self.send_json(result)
             else:
                 self.send_json({"error": "Failed to fetch data"}, 502)
@@ -217,13 +241,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
         # API: Fetch station list
         if path == '/api/stations':
-            print("  → Proxying STATION LIST request...")
+            # print("  → Proxying STATION LIST request...")
             result = do_fetch_stations()
+            if result:
+                log_diff("STATIONS", last_state["stations"], result)
+                last_state["stations"] = result
             self.send_json(result)
             return
         elif path == '/api/static_ips':
-            print("  → Proxying STATIC IPS request...")
+            # print("  → Proxying STATIC IPS request...")
             result = do_fetch_static_ips()
+            if result:
+                log_diff("STATIC_IPS", last_state["static_ips"], result)
+                last_state["static_ips"] = result
             self.send_json(result)
             return
 
