@@ -237,6 +237,35 @@
             font-size: 0.8rem;
             font-family: 'JetBrains Mono', monospace;
         }
+
+        /* --- Sparkline Styles --- */
+        .sparkline-container {
+            width: 100%;
+            height: 30px;
+            margin-top: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sparkline {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .sparkline-path {
+            fill: none;
+            stroke: var(--accent-primary);
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            filter: drop-shadow(0 0 4px var(--accent-primary));
+        }
+
+        .sparkline-path-ul {
+            stroke: var(--accent-secondary);
+            filter: drop-shadow(0 0 4px var(--accent-secondary));
+        }
     </style>
 </head>
 <body>
@@ -247,13 +276,13 @@
             <h1>ZTE ROUTER MONITOR</h1>
             <div style="display: flex; gap: 1rem; align-items: center;">
                 <p style="font-size: 0.75rem; color: var(--text-dim);">Live Diagnostic Dashboard</p>
-                <p id="lastUpdate" style="font-size: 0.75rem; color: var(--accent-primary); font-family: 'JetBrains Mono', monospace; font-weight: 700;"></p>
+                <p id="lastUpdate" data-field="lastUpdate" style="font-size: 0.75rem; color: var(--accent-primary); font-family: 'JetBrains Mono', monospace; font-weight: 700;"></p>
             </div>
         </div>
         <div style="display: flex; gap: 1rem; align-items: center;">
             <div id="connectionStatus" class="status-badge">
                 <div class="status-dot"></div>
-                <span>Offline</span>
+                <span data-field="connectionStatusText">Offline</span>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 2rem; border: 1px solid var(--border);">
                 <input type="checkbox" id="autoRefresh" style="cursor: pointer;">
@@ -273,40 +302,48 @@
             <div class="signal-grid">
                 <div>
                     <div class="sub-value">RSRP (Strength)</div>
-                    <div id="rsrpValue" class="big-value">--</div>
+                    <div id="rsrpValue" data-field="lte_rsrp" data-format="rsrp" class="big-value">--</div>
                     <div class="signal-meter"><div id="rsrpFill" class="signal-fill"></div></div>
+                    <div data-field="rsrpGrade" data-format="html" style="font-size: 0.75rem; margin-top: 0.5rem; font-weight: 600;">--</div>
+                    <div class="sparkline-container">
+                        <svg class="sparkline"><path id="rsrpSpark" class="sparkline-path" d=""></path></svg>
+                    </div>
                 </div>
                 <div>
                     <div class="sub-value">SINR (Quality)</div>
-                    <div id="sinrValue" class="big-value">--</div>
+                    <div id="sinrValue" data-field="sinr" data-format="sinr" class="big-value">--</div>
                     <div class="signal-meter"><div id="sinrFill" class="signal-fill"></div></div>
+                    <div data-field="sinrGrade" data-format="html" style="font-size: 0.75rem; margin-top: 0.5rem; font-weight: 600;">--</div>
+                    <div class="sparkline-container">
+                        <svg class="sparkline"><path id="sinrSpark" class="sparkline-path" d=""></path></svg>
+                    </div>
                 </div>
             </div>
             <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: baseline;">
-                <div class="sub-value">Cell ID: <span id="cellId" style="color: white; font-weight: 700;">--</span></div>
-                <div class="sub-value">EARFCN: <span id="earfcn" style="color: white; font-weight: 700;">--</span></div>
+                <div class="sub-value">Cell ID: <span id="cellId" data-field="cell_id" style="color: white; font-weight: 700;">--</span></div>
+                <div class="sub-value">EARFCN: <span id="earfcn" data-field="Z_dl_earfcn" style="color: white; font-weight: 700;">--</span></div>
             </div>
-            <div id="signalAnalysis" class="analysis-box">Waiting for data...</div>
         </div>
 
         <!-- Data Usage -->
         <div class="card">
             <div class="card-title">📊 Monthly Data</div>
-            <div id="monthlyUsage" class="big-value">--</div>
-            <div id="monthlyTime" class="sub-value">--</div>
+            <div id="monthlyUsage" data-field="monthly_usage" data-format="bytes" class="big-value">--</div>
+            <div id="monthlyTime" data-field="monthly_time" data-format="time" class="sub-value">--</div>
             <div style="display: flex; gap: 1rem; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.5rem;">
                 <div style="flex: 1;">
                     <div class="sub-value">Monthly DL</div>
-                    <div id="monthlyDl" style="color: white; font-weight: 700;">--</div>
+                    <div id="monthlyDl" data-field="monthly_rx_bytes" data-format="bytes" style="color: white; font-weight: 700;">--</div>
                 </div>
                 <div style="flex: 1;">
                     <div class="sub-value">Monthly UL</div>
-                    <div id="monthlyUl" style="color: white; font-weight: 700;">--</div>
+                    <div id="monthlyUl" data-field="monthly_tx_bytes" data-format="bytes" style="color: white; font-weight: 700;">--</div>
                 </div>
             </div>
-            <div style="margin-top: 1rem;">
-                <div class="sub-value">Provider: <span id="provider" style="color: white">--</span></div>
-                <div class="sub-value">Type: <span id="netType" style="color: white">--</span></div>
+            <div style="margin-top: 1rem;" class="sub-value">
+                Provider: <span id="provider" data-field="network_provider" style="color: white">--</span> 
+                <span style="margin: 0 0.5rem; opacity: 0.3;">|</span>
+                Type: <span id="netType" data-field="network_type" style="color: white">--</span>
             </div>
         </div>
 
@@ -316,15 +353,21 @@
             <div style="display: flex; justify-content: space-between; gap: 1rem;">
                 <div style="flex: 1;">
                     <div class="sub-value">Download</div>
-                    <div id="dlSpeed" class="big-value" style="color: var(--accent-primary)">--</div>
+                    <div id="dlSpeed" data-field="realtime_rx_thrpt" data-format="speed" class="big-value" style="color: var(--accent-primary)">--</div>
+                    <div class="sparkline-container">
+                        <svg class="sparkline"><path id="dlSpark" class="sparkline-path" d=""></path></svg>
+                    </div>
                 </div>
                 <div style="flex: 1;">
                     <div class="sub-value">Upload</div>
-                    <div id="ulSpeed" class="big-value" style="color: var(--accent-secondary)">--</div>
+                    <div id="ulSpeed" data-field="realtime_tx_thrpt" data-format="speed" class="big-value" style="color: var(--accent-secondary)">--</div>
+                    <div class="sparkline-container">
+                        <svg class="sparkline"><path id="ulSpark" class="sparkline-path sparkline-path-ul" d=""></path></svg>
+                    </div>
                 </div>
             </div>
             <div style="margin-top: 1rem;" class="sub-value">
-                Total session: <span id="totalData" style="color: white">--</span>
+                Total session: <span id="totalData" data-field="total_data" data-format="bytes" style="color: white">--</span>
             </div>
         </div>
 
@@ -333,12 +376,12 @@
         <div class="card">
             <div class="card-title">🌐 Network & LAN</div>
             <div class="info-grid">
-                <div class="info-row"><span class="info-label">WAN IP</span><span id="wanIp" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">PPP Status</span><span id="pppStatus" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">LAN IP</span><span id="lanIp" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">Netmask</span><span id="lanNetmask" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">DHCP</span><span id="dhcpState" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">WiFi MAC</span><span id="mac" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">WAN IP</span><span id="wanIp" data-field="wan_ipaddr" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">PPP Status</span><span id="pppStatus" data-field="ppp_status" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">LAN IP</span><span id="lanIp" data-field="lan_ipaddr" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">Netmask</span><span id="lanNetmask" data-field="lan_netmask" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">DHCP</span><span id="dhcpState" data-field="dhcpEnabled" data-format="dhcp" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">WiFi MAC</span><span id="mac" data-field="mac_address" class="info-value">--</span></div>
             </div>
         </div>
 
@@ -346,10 +389,10 @@
         <div class="card">
             <div class="card-title">🛠️ System Details</div>
             <div class="info-grid">
-                <div class="info-row"><span class="info-label">IMEI</span><span id="imei" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">Firmware</span><span id="firmware" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">Hardware</span><span id="hardware" class="info-value">--</span></div>
-                <div class="info-row"><span class="info-label">MSISDN</span><span id="msisdn" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">IMEI</span><span id="imei" data-field="imei" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">Firmware</span><span id="firmware" data-field="cr_version" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">Hardware</span><span id="hardware" data-field="hardware_version" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">MSISDN</span><span id="msisdn" data-field="msisdn" class="info-value">--</span></div>
             </div>
         </div>
 
@@ -358,8 +401,8 @@
         <div class="card">
             <div class="card-title">📊 System Stats</div>
             <div class="info-grid">
-                <div class="info-row"><span class="info-label">SMS Unread</span><span id="smsCount" class="info-value" style="color: var(--accent-primary)">0</span></div>
-                <div class="info-row"><span class="info-label">WiFi Clients</span><span id="wifiCount" class="info-value">--</span></div>
+                <div class="info-row"><span class="info-label">SMS Unread</span><span id="smsCount" data-field="sms_unread_num" class="info-value" style="color: var(--accent-primary)">0</span></div>
+                <div class="info-row"><span class="info-label">WiFi Clients</span><span id="wifiCount" data-field="wifi_access_sta_num" class="info-value">--</span></div>
             </div>
         </div>
         <!-- Static IP Reservations -->
@@ -381,7 +424,7 @@
 
         <!-- Connected Devices -->
         <div class="card table-card" style="grid-column: 1 / -1;">
-            <div class="card-title">📱 Connected Devices (<span id="deviceCount">0</span>)</div>
+            <div class="card-title">📱 Connected Devices (<span id="deviceCount" data-field="deviceCount">0</span>)</div>
             <table>
                 <thead>
                     <tr>
