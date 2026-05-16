@@ -55,19 +55,19 @@ const UI = {
 
 // --- Utilities ---
 function formatBytes(bytes) {
-  if (!bytes || isNaN(bytes)) return `0 <small style="font-size: 0.5em; opacity: 0.7; font-weight: 400;">B</small>`;
+  if (!bytes || isNaN(bytes)) return `0 <small class="unit">B</small>`;
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const val = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
-  return `${val} <small style="font-size: 0.5em; opacity: 0.7; font-weight: 400;">${sizes[i]}</small>`;
+  return `${val} <small class="unit">${sizes[i]}</small>`;
 }
 
 function formatSpeed(bps) {
-  if (!bps || isNaN(bps)) return `0 <small style="font-size: 0.5em; opacity: 0.7; font-weight: 400;">bps</small>`;
-  if (bps < 1000) return `${bps} <small style="font-size: 0.5em; opacity: 0.7; font-weight: 400;">bps</small>`;
-  if (bps < 1000000) return `${(bps / 1000).toFixed(2)} <small style="font-size: 0.5em; opacity: 0.7; font-weight: 400;">Kbps</small>`;
-  return `${(bps / 1000000).toFixed(2)} <small style="font-size: 0.5em; opacity: 0.7; font-weight: 400;">Mbps</small>`;
+  if (!bps || isNaN(bps)) return `0 <small class="unit">bps</small>`;
+  if (bps < 1000) return `${bps} <small class="unit">bps</small>`;
+  if (bps < 1000000) return `${(bps / 1000).toFixed(2)} <small class="unit">Kbps</small>`;
+  return `${(bps / 1000000).toFixed(2)} <small class="unit">Mbps</small>`;
 }
 
 function formatTime(seconds) {
@@ -337,10 +337,16 @@ async function refresh() {
 
 // --- Trend Manager for Sparklines ---
 class TrendManager {
-  constructor(elementId, maxPoints = 50) {
+  constructor(elementId, options = {}) {
     this.element = document.getElementById(elementId);
     this.points = [];
-    this.maxPoints = maxPoints;
+    this.maxPoints = options.maxPoints || 50;
+    this.formatter = options.formatter || ((v) => v.toFixed(1));
+    this.stats = {
+      min: document.getElementById(options.minId),
+      max: document.getElementById(options.maxId),
+      avg: document.getElementById(options.avgId),
+    };
   }
 
   addPoint(value) {
@@ -349,6 +355,7 @@ class TrendManager {
     this.points.push(num);
     if (this.points.length > this.maxPoints) this.points.shift();
     this.draw();
+    this.updateStats();
   }
 
   clear() {
@@ -356,6 +363,24 @@ class TrendManager {
     if (this.element) {
       this.element.setAttribute("d", "");
     }
+    this.updateStats();
+  }
+
+  updateStats() {
+    if (this.points.length === 0) {
+      if (this.stats.min) this.stats.min.innerText = "--";
+      if (this.stats.max) this.stats.max.innerText = "--";
+      if (this.stats.avg) this.stats.avg.innerText = "--";
+      return;
+    }
+
+    const min = Math.min(...this.points);
+    const max = Math.max(...this.points);
+    const avg = this.points.reduce((a, b) => a + b, 0) / this.points.length;
+
+    if (this.stats.min) this.stats.min.innerHTML = this.formatter(min);
+    if (this.stats.max) this.stats.max.innerHTML = this.formatter(max);
+    if (this.stats.avg) this.stats.avg.innerHTML = this.formatter(avg);
   }
 
   draw() {
@@ -374,7 +399,7 @@ class TrendManager {
       .map((p, i) => {
         const x = (i / (this.maxPoints - 1)) * width;
         // Flip Y axis (SVG 0 is top) and add padding
-        const y = height - ((p - min) / range) * (height - 6) - 3;
+        const y = height - ((p - min) / range) * (height - 10) - 5;
         return `${i === 0 ? "M" : "L"} ${x} ${y}`;
       })
       .join(" ");
@@ -384,10 +409,22 @@ class TrendManager {
 }
 
 const TRENDS = {
-  rsrp: new TrendManager("rsrpSpark"),
-  sinr: new TrendManager("sinrSpark"),
-  dl: new TrendManager("dlSpark"),
-  ul: new TrendManager("ulSpark"),
+  rsrp: new TrendManager("rsrpSpark", { 
+    minId: "rsrpMin", maxId: "rsrpMax", avgId: "rsrpAvg",
+    formatter: (v) => `${v.toFixed(0)} <small class="unit">dBm</small>`
+  }),
+  sinr: new TrendManager("sinrSpark", { 
+    minId: "sinrMin", maxId: "sinrMax", avgId: "sinrAvg",
+    formatter: (v) => `${v.toFixed(1)} <small class="unit">dB</small>`
+  }),
+  dl: new TrendManager("dlSpark", { 
+    minId: "dlMin", maxId: "dlMax", avgId: "dlAvg",
+    formatter: formatSpeed
+  }),
+  ul: new TrendManager("ulSpark", { 
+    minId: "ulMin", maxId: "ulMax", avgId: "ulAvg",
+    formatter: formatSpeed
+  }),
 };
 
 // --- Initialization ---

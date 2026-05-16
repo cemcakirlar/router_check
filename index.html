@@ -182,23 +182,76 @@
         }
 
         .refresh-btn {
-            background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             cursor: pointer;
-            transition: opacity 0.3s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
         }
 
         .refresh-btn:hover {
-            opacity: 0.9;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .refresh-btn:active {
+            transform: translateY(0);
         }
 
         .refresh-btn:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
+            transform: none;
+        }
+
+        #refreshBtn {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
+            padding: 0.5rem 1.25rem;
+        }
+
+        #refreshBtn:hover {
+            box-shadow: 0 6px 20px rgba(0, 242, 255, 0.4);
+        }
+
+        #stopServerBtn {
+            background: rgba(239, 68, 68, 0.05);
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        #stopServerBtn:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: var(--danger);
+        }
+
+        .auto-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.4rem 0.8rem;
+            border-radius: 2rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .auto-toggle:has(input:checked) {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
         }
 
         .analysis-box {
@@ -241,10 +294,38 @@
         /* --- Sparkline Styles --- */
         .sparkline-container {
             width: 100%;
-            height: 30px;
+            height: 45px;
             margin-top: 0.5rem;
             position: relative;
             overflow: hidden;
+            border-radius: 0.5rem;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .trend-stats {
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            padding: 0 6px;
+            opacity: 0.8;
+            pointer-events: none;
+            background: linear-gradient(to top, rgba(5, 10, 20, 0.8), transparent);
+        }
+
+        .trend-stats span {
+            display: flex;
+            gap: 3px;
+        }
+
+        .trend-stats b {
+            color: var(--text-main);
+            font-weight: 600;
         }
 
         .sparkline {
@@ -266,6 +347,55 @@
             stroke: var(--accent-secondary);
             filter: drop-shadow(0 0 4px var(--accent-secondary));
         }
+
+        .stats-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-row span {
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.65rem;
+        }
+
+        .stat-row b {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* --- Unit Styling --- */
+        .unit {
+            font-size: 0.5em;
+            opacity: 0.7;
+            font-weight: 400;
+            margin-left: 2px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        /* Responsive units for better readability */
+        .stat-row .unit, .trend-stats .unit {
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+
+        .big-value .unit {
+            font-size: 0.45em;
+        }
     </style>
 </head>
 <body>
@@ -279,19 +409,19 @@
                 <p id="lastUpdate" data-field="lastUpdate" style="font-size: 0.75rem; color: var(--accent-primary); font-family: 'JetBrains Mono', monospace; font-weight: 700;"></p>
             </div>
         </div>
-        <div style="display: flex; gap: 1rem; align-items: center;">
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
             <div id="connectionStatus" class="status-badge">
                 <div class="status-dot"></div>
                 <span data-field="connectionStatusText">Offline</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--card-bg); padding: 0.5rem 1rem; border-radius: 2rem; border: 1px solid var(--border);">
+            <div class="auto-toggle">
                 <input type="checkbox" id="autoRefresh" style="cursor: pointer;">
-                <label for="autoRefresh" style="font-size: 0.75rem; font-weight: 600; cursor: pointer; color: var(--text-dim);">AUTO</label>
+                <label for="autoRefresh" style="font-size: 0.7rem; font-weight: 700; cursor: pointer; color: var(--text-dim); letter-spacing: 0.5px;">AUTO</label>
             </div>
-            <button id="loginBtn" class="refresh-btn" style="background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border);">LOGIN</button>
-            <button id="logoutBtn" class="refresh-btn" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); display: none;">LOGOUT</button>
+            <button id="loginBtn" class="refresh-btn">LOGIN</button>
+            <button id="logoutBtn" class="refresh-btn">LOGOUT</button>
             <button id="refreshBtn" class="refresh-btn">REFRESH</button>
-            <button id="stopServerBtn" class="refresh-btn" style="background: rgba(239, 68, 68, 0.2); color: #ff5555; border: 1px solid rgba(239, 68, 68, 0.4); font-weight: 800;">STOP</button>
+            <button id="stopServerBtn" class="refresh-btn">STOP SERVER</button>
         </div>
     </header>
 
@@ -305,8 +435,13 @@
                     <div id="rsrpValue" data-field="lte_rsrp" data-format="rsrp" class="big-value">--</div>
                     <div class="signal-meter"><div id="rsrpFill" class="signal-fill"></div></div>
                     <div data-field="rsrpGrade" data-format="html" style="font-size: 0.75rem; margin-top: 0.5rem; font-weight: 600;">--</div>
-                    <div class="sparkline-container">
+                    <div class="sparkline-container" style="height: 30px;">
                         <svg class="sparkline"><path id="rsrpSpark" class="sparkline-path" d=""></path></svg>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-row"><span>Min</span><b id="rsrpMin">--</b></div>
+                        <div class="stat-row"><span>Avg</span><b id="rsrpAvg">--</b></div>
+                        <div class="stat-row"><span>Max</span><b id="rsrpMax">--</b></div>
                     </div>
                 </div>
                 <div>
@@ -314,8 +449,13 @@
                     <div id="sinrValue" data-field="sinr" data-format="sinr" class="big-value">--</div>
                     <div class="signal-meter"><div id="sinrFill" class="signal-fill"></div></div>
                     <div data-field="sinrGrade" data-format="html" style="font-size: 0.75rem; margin-top: 0.5rem; font-weight: 600;">--</div>
-                    <div class="sparkline-container">
+                    <div class="sparkline-container" style="height: 30px;">
                         <svg class="sparkline"><path id="sinrSpark" class="sparkline-path" d=""></path></svg>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-row"><span>Min</span><b id="sinrMin">--</b></div>
+                        <div class="stat-row"><span>Avg</span><b id="sinrAvg">--</b></div>
+                        <div class="stat-row"><span>Max</span><b id="sinrMax">--</b></div>
                     </div>
                 </div>
             </div>
@@ -350,19 +490,29 @@
         <!-- Realtime Traffic -->
         <div class="card">
             <div class="card-title">⚡ Realtime Speeds</div>
-            <div style="display: flex; justify-content: space-between; gap: 1rem;">
+            <div style="display: flex; justify-content: space-between; gap: 1.5rem;">
                 <div style="flex: 1;">
                     <div class="sub-value">Download</div>
                     <div id="dlSpeed" data-field="realtime_rx_thrpt" data-format="speed" class="big-value" style="color: var(--accent-primary)">--</div>
-                    <div class="sparkline-container">
+                    <div class="sparkline-container" style="height: 30px;">
                         <svg class="sparkline"><path id="dlSpark" class="sparkline-path" d=""></path></svg>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-row"><span>Min</span><b id="dlMin">--</b></div>
+                        <div class="stat-row"><span>Avg</span><b id="dlAvg">--</b></div>
+                        <div class="stat-row"><span>Max</span><b id="dlMax">--</b></div>
                     </div>
                 </div>
                 <div style="flex: 1;">
                     <div class="sub-value">Upload</div>
                     <div id="ulSpeed" data-field="realtime_tx_thrpt" data-format="speed" class="big-value" style="color: var(--accent-secondary)">--</div>
-                    <div class="sparkline-container">
+                    <div class="sparkline-container" style="height: 30px;">
                         <svg class="sparkline"><path id="ulSpark" class="sparkline-path sparkline-path-ul" d=""></path></svg>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-row"><span>Min</span><b id="ulMin">--</b></div>
+                        <div class="stat-row"><span>Avg</span><b id="ulAvg">--</b></div>
+                        <div class="stat-row"><span>Max</span><b id="ulMax">--</b></div>
                     </div>
                 </div>
             </div>
