@@ -204,9 +204,9 @@ function clearUI(message) {
   UI.loginBtn.style.display = "block";
   UI.logoutBtn.style.display = "none";
   UI.loginBtn.disabled = false;
-  
+
   // Reset Trendlines
-  Object.values(TRENDS).forEach(t => t.clear());
+  Object.values(TRENDS).forEach((t) => t.clear());
 }
 
 function updateUI(data, stationData, staticData, loginSuccess) {
@@ -410,21 +410,29 @@ class TrendManager {
 }
 
 const TRENDS = {
-  rsrp: new TrendManager("rsrpSpark", { 
-    minId: "rsrpMin", maxId: "rsrpMax", avgId: "rsrpAvg",
-    formatter: (v) => `${v.toFixed(0)} <small class="unit">dBm</small>`
+  rsrp: new TrendManager("rsrpSpark", {
+    minId: "rsrpMin",
+    maxId: "rsrpMax",
+    avgId: "rsrpAvg",
+    formatter: (v) => `${v.toFixed(0)} <small class="unit">dBm</small>`,
   }),
-  sinr: new TrendManager("sinrSpark", { 
-    minId: "sinrMin", maxId: "sinrMax", avgId: "sinrAvg",
-    formatter: (v) => `${v.toFixed(1)} <small class="unit">dB</small>`
+  sinr: new TrendManager("sinrSpark", {
+    minId: "sinrMin",
+    maxId: "sinrMax",
+    avgId: "sinrAvg",
+    formatter: (v) => `${v.toFixed(1)} <small class="unit">dB</small>`,
   }),
-  dl: new TrendManager("dlSpark", { 
-    minId: "dlMin", maxId: "dlMax", avgId: "dlAvg",
-    formatter: formatSpeed
+  dl: new TrendManager("dlSpark", {
+    minId: "dlMin",
+    maxId: "dlMax",
+    avgId: "dlAvg",
+    formatter: formatSpeed,
   }),
-  ul: new TrendManager("ulSpark", { 
-    minId: "ulMin", maxId: "ulMax", avgId: "ulAvg",
-    formatter: formatSpeed
+  ul: new TrendManager("ulSpark", {
+    minId: "ulMin",
+    maxId: "ulMax",
+    avgId: "ulAvg",
+    formatter: formatSpeed,
   }),
 };
 
@@ -473,20 +481,36 @@ function init() {
     try {
       await fetch(`${PROXY_URL}/api/stop`);
       document.body.innerHTML = `
-                <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif;">
-                    <h1 style="color: #ff5555;">Server Stopped</h1>
-                    <p style="color: #94a3b8;">The local proxy has been shut down. You can close this tab.</p>
+                <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 2rem;">
+                    <h1 style="color: #ff5555; margin-bottom: 1rem;">Server Stopped</h1>
+                    <p style="color: #94a3b8; margin-bottom: 2rem;">The local proxy has been shut down.</p>
+                    <button id="restartServerBtn" style="background: linear-gradient(135deg, #00f2ff, #7000ff); border: none; color: white; padding: 1rem 2rem; border-radius: 1rem; font-weight: 700; cursor: pointer; font-size: 1rem; box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);">
+                        START SERVER
+                    </button>
                 </div>
             `;
+
+      document.getElementById("restartServerBtn").addEventListener("click", () => {
+        if (window.electron && window.electron.restartServer) {
+          const rBtn = document.getElementById("restartServerBtn");
+          rBtn.innerText = "STARTING...";
+          rBtn.disabled = true;
+          window.electron.restartServer();
+        } else {
+          alert("Restarting the server is only supported in the Desktop App.");
+        }
+      });
     } catch (e) {
       console.error("Stop failed:", e);
+      btn.innerText = "STOP SERVER";
+      btn.disabled = false;
     }
   });
 
   // Default to Auto-Refresh ON
   UI.autoRefresh.checked = true;
   refreshInterval = setInterval(refresh, 1000);
-  
+
   refresh();
 }
 

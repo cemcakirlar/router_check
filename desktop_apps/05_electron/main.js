@@ -1,22 +1,15 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
 let mainWindow;
 let pyServer;
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    title: "ZTE Router Dashboard",
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true
-    }
-  });
+function startPythonServer() {
+  if (pyServer) {
+    pyServer.kill();
+  }
 
-  // Launch the python server (as a child process)
   const isDev = !app.isPackaged;
   let pyProcess;
   let pyArgs = [];
@@ -42,22 +35,37 @@ function createWindow() {
   pyServer.stderr.on('data', (data) => {
     console.error(`🐍 Python Error: ${data}`);
   });
+}
 
-  // Poll the server until it starts before loading the dashboard
-  const loadDashboard = () => {
-    const http = require('http');
-    const checkServer = () => {
-      http.get('http://localhost:8080', (res) => {
-        console.log("📡 Backend is ready, loading UI...");
+function loadDashboard() {
+  const http = require('http');
+  const checkServer = () => {
+    http.get('http://localhost:8080', (res) => {
+      console.log("📡 Backend is ready, loading UI...");
+      if (mainWindow) {
         mainWindow.loadURL('http://localhost:8080');
-      }).on('error', () => {
-        console.log("⏳ Waiting for backend...");
-        setTimeout(checkServer, 200);
-      });
-    };
-    checkServer();
+      }
+    }).on('error', () => {
+      console.log("⏳ Waiting for backend...");
+      setTimeout(checkServer, 200);
+    });
   };
+  checkServer();
+}
 
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    title: "ZTE Router Dashboard",
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  startPythonServer();
   loadDashboard();
 
   mainWindow.on('closed', () => {
@@ -65,6 +73,12 @@ function createWindow() {
     if (pyServer) pyServer.kill();
   });
 }
+
+ipcMain.on('restart-server', () => {
+  console.log("🔄 Restart request received from UI");
+  startPythonServer();
+  loadDashboard();
+});
 
 app.on('ready', createWindow);
 
