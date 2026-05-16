@@ -1,0 +1,36 @@
+{
+  "applicationId": "io.cakirlar.routercheck",
+  "version": "1.0.1",
+  "defaultMode": "window",
+  "port": 8081,
+  "documentRoot": "/",
+  "url": "/index.html",
+  "modes": {
+    "window": {
+      "title": "ZTE Router Dashboard",
+      "width": 1200,
+      "height": 800,
+      "minWidth": 800,
+      "minHeight": 600,
+      "enableInspector": true
+    }
+  },
+  "sidecars": [
+    {
+      "id": "routerProxy",
+      "executable": "bin/server-macos",
+      "command": ""
+    }
+  ],
+  "logging": {
+    "enabled": true
+  },
+  "cli": {
+    "binaryName": "router-check",
+    "resourcesPath": "/resources/",
+    "distributionPath": "/dist/",
+    "clientLibrary": "/resources/neutralino.js",
+    "binaryVersion": "6.7.0",
+    "clientVersion": "6.7.0"
+  }
+}
