@@ -159,4 +159,10 @@ cython_debug/
 # Node modules (if any)
 node_modules/
 
+# Desktop App Build Artifacts
+desktop_apps/*/bin/
+desktop_apps/*/resources/bin/
+desktop_apps/*/out/
+desktop_apps/*/release/
+
 .brainstorm
