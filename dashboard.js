@@ -203,6 +203,9 @@ function clearUI(message) {
   UI.loginBtn.style.display = "block";
   UI.logoutBtn.style.display = "none";
   UI.loginBtn.disabled = false;
+  
+  // Reset Trendlines
+  Object.values(TRENDS).forEach(t => t.clear());
 }
 
 function updateUI(data, stationData, staticData, loginSuccess) {
@@ -212,6 +215,10 @@ function updateUI(data, stationData, staticData, loginSuccess) {
   }
 
   // 1. Prepare computed fields for the mapper
+  // Fix: ZTE throughput is reported in Bytes/s. Convert to bits/s for standard speed display.
+  if (data.realtime_rx_thrpt) data.realtime_rx_thrpt = parseFloat(data.realtime_rx_thrpt) * 8;
+  if (data.realtime_tx_thrpt) data.realtime_tx_thrpt = parseFloat(data.realtime_tx_thrpt) * 8;
+
   const now = new Date();
   data.lastUpdate = "UPDATED: " + now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   data.connectionStatusText = "Connected";
@@ -342,6 +349,13 @@ class TrendManager {
     this.points.push(num);
     if (this.points.length > this.maxPoints) this.points.shift();
     this.draw();
+  }
+
+  clear() {
+    this.points = [];
+    if (this.element) {
+      this.element.setAttribute("d", "");
+    }
   }
 
   draw() {
