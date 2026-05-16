@@ -1,6 +1,6 @@
 # 🚀 ZTE Router Dashboard & Monitor
 
-A premium, modern web dashboard and powerful CLI monitoring tool for ZTE mobile routers. Specifically designed for models like the **MC801A**, **MU5001**, and other ZTE 4G/5G units.
+A premium, modern web dashboard and powerful CLI monitoring tool for ZTE mobile routers. Specifically designed for models like the **MF286R**, **MC801A**, **MU5001**, and other ZTE 4G/5G units that use the standard `goform` API.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
@@ -25,6 +25,18 @@ A premium, modern web dashboard and powerful CLI monitoring tool for ZTE mobile 
 - **CORS Bypass**: Includes a built-in Python proxy server to communicate with the router without browser security restrictions.
 - **Session Persistence**: Maintains persistent authentication cookies across requests.
 - **Lightweight Logging**: Clean terminal output showing only critical session events (login/logout).
+
+---
+
+## 📱 Supported Devices
+
+This tool communicates via the ZTE `goform` API. It has been tested and is compatible with:
+- **MF286R** (Verified)
+- **MC801A** (Verified)
+- **MU5001** (Verified)
+- **MF286 / MF286D** (Compatible)
+- **MF253V / MF283+** (Compatible)
+- *Most ZTE units using the standard web-based admin interface.*
 
 ---
 
