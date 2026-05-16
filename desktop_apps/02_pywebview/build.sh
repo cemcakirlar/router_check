@@ -1,38 +1,69 @@
 #!/bin/bash
 
-# Exit on error
+# ==============================================================================
+# RouterCheck Build Script (PyWebView)
+# This script packages the Python + Webview application into a standalone 
+# macOS .app bundle using PyInstaller.
+# ==============================================================================
+
+# Exit immediately if any command exits with a non-zero status
 set -e
 
 echo "🚀 Starting build for RouterCheck (PyWebView)..."
 
-# Ensure we are in the correct directory
+# Ensure the script runs relative to its own directory, regardless of where it's called from
 cd "$(dirname "$0")"
 
-# Try to find and source the virtual environment in the project root
+# ------------------------------------------------------------------------------
+# 1. Environment Setup
+# ------------------------------------------------------------------------------
+
+# Attempt to locate and activate the Python virtual environment from the project root
 VENV_PATH="../../.venv/bin/activate"
 if [ -f "$VENV_PATH" ]; then
     echo "🐍 Activating virtual environment..."
     source "$VENV_PATH"
+else
+    echo "⚠️  Warning: Virtual environment not found at $VENV_PATH. Using system Python."
 fi
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-python3 -m pip install pyinstaller pywebview
+# Ensure the necessary packaging tools are installed/updated
+echo "📦 Ensuring dependencies are installed..."
+python3 -m pip install --upgrade pyinstaller pywebview
 
-# Clean previous builds
+# ------------------------------------------------------------------------------
+# 2. Cleanup
+# ------------------------------------------------------------------------------
+
+# Remove previous build artifacts to ensure a fresh compilation
+echo "🧹 Cleaning previous builds..."
 rm -rf build dist *.spec
+
+# ------------------------------------------------------------------------------
+# 3. Packaging
+# ------------------------------------------------------------------------------
 
 echo "🏗️  Building standalone executable..."
 
-# --onedir: creates a standard macOS .app bundle structure (preferred over --onefile for windowed apps)
-# --windowed: creates the .app bundle and prevents a terminal from opening
-# --add-data: include the frontend files
-# --name: name of the final executable
+# PyInstaller Configuration:
+# --onedir:   Creates a folder containing the executable and dynamic libraries. 
+#             This is required for a standard macOS .app bundle structure.
+# --windowed: (or --noconsole) Prevents a terminal/command prompt from opening 
+#             when the app is launched. Essential for GUI apps.
+# --noconfirm: Overwrites the output directory without asking for permission.
+# --clean:    Cleans the PyInstaller cache before building.
+# --add-data: Bundles external files (HTML/JS) into the application. 
+#             Format: "source:destination" (destination "." is the root of the bundle).
+# --name:     The name of the generated .app bundle.
 pyinstaller --onedir --windowed --noconfirm --clean \
     --add-data "index.html:." \
     --add-data "dashboard.js:." \
     --name "RouterCheck-WebView" \
     server.py
+
+# ------------------------------------------------------------------------------
+# 4. Finalization
+# ------------------------------------------------------------------------------
 
 echo "✅ Build complete!"
 echo "📁 Standalone app is located in: $(pwd)/dist/RouterCheck-WebView.app"
