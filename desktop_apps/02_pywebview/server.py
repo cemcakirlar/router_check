@@ -20,6 +20,8 @@ import http.cookies
 import threading
 import sys
 import webview
+import socket
+import subprocess
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -327,29 +329,194 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b"File not found")
 
 
+def check_and_resolve_port_conflict(port):
+    """Check if port is occupied and resolve it by killing the process if needed."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("0.0.0.0", port))
+        s.close()
+        return False
+    except socket.error:
+        print(f"⚠️ Port {port} is occupied. Attempting conflict recovery...")
+        if sys.platform == 'darwin':
+            try:
+                output = subprocess.check_output(["lsof", "-t", "-i", f"tcp:{port}"], text=True)
+                pids = [pid.strip() for pid in output.split("\n") if pid.strip()]
+                print(f"🔍 Found PIDs using port {port}: {pids}")
+                for pid in pids:
+                    print(f"💀 Killing PID: {pid}")
+                    subprocess.call(["kill", "-9", pid])
+                time.sleep(1.0)
+                s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    s2.bind(("0.0.0.0", port))
+                    s2.close()
+                    print(f"✅ Successfully reclaimed port {port}.")
+                    return True
+                except socket.error:
+                    print(f"❌ Port {port} is still occupied after kill attempt.")
+                    return False
+            except Exception as ex:
+                print(f"⚠️ Failed to resolve port conflict: {ex}")
+                return False
+        else:
+            print("⚠️ Port conflict resolution is only supported on macOS.")
+            return False
+
+
+class Api:
+    def login(self):
+        """API bridge for login."""
+        res = do_login()
+        return res if res is not None else {"result": "failure", "error": "Could not reach router"}
+        
+    def logout(self):
+        """API bridge for logout."""
+        res = do_logout()
+        return res if res is not None else {"result": "failure", "error": "Could not reach router"}
+        
+    def fetch_data(self, commands):
+        """API bridge for data fetch."""
+        res = do_fetch_data(commands)
+        if res:
+            log_diff("DATA", last_state["data"], res)
+            last_state["data"].update(res)
+            return res
+        return {"error": "Failed to fetch data"}
+
+    def fetch_stations(self):
+        """API bridge for stations."""
+        res = do_fetch_stations()
+        if res:
+            log_diff("STATIONS", last_state["stations"], res)
+            last_state["stations"] = res
+        return res
+
+    def fetch_static_ips(self):
+        """API bridge for static IPs."""
+        res = do_fetch_static_ips()
+        if res:
+            log_diff("STATIC_IPS", last_state["static_ips"], res)
+            last_state["static_ips"] = res
+        return res
+
+    def stop_server(self):
+        """Stop the background HTTP proxy server."""
+        global http_server
+        if http_server:
+            try:
+                print("  → Shutting down proxy server via JS API...")
+                http_server.shutdown()
+                http_server = None
+                return {"result": "ok"}
+            except Exception as e:
+                print(f"Error shutting down proxy server: {e}")
+                return {"result": "error", "message": str(e)}
+        return {"result": "ok"}
+
+    def restart_server(self):
+        """Restart the background HTTP proxy server."""
+        global http_server
+        if not http_server:
+            try:
+                print("  → Restarting proxy server via JS API...")
+                run_server_thread()
+                return {"result": "ok"}
+            except Exception as e:
+                print(f"Error restarting proxy server: {e}")
+                return {"result": "error", "message": str(e)}
+        return {"result": "ok"}
+
+
+http_server = None
+server_thread = None
+
 def run_server():
     """Function to run the server in a background thread."""
-    server = http.server.HTTPServer(("", PORT), ProxyHandler)
-    print(f"  → Proxy Server started on http://localhost:{PORT}")
-    server.serve_forever()
+    global http_server
+    try:
+        check_and_resolve_port_conflict(PORT)
+        http_server = http.server.HTTPServer(("", PORT), ProxyHandler)
+        print(f"  → Proxy Server started on http://localhost:{PORT}")
+        http_server.serve_forever()
+    except Exception as e:
+        print(f"⚠️ Failed to start fallback HTTP proxy server on port {PORT}: {e}")
 
-if __name__ == "__main__":
-    # 1. Start the Flask-like server in a daemon thread
+
+def run_server_thread():
+    global server_thread
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
+
+
+cleanup_completed = False
+
+def perform_cleanup(window):
+    global cleanup_completed
+    print("🧹 Cleanup thread started...")
     
-    # 2. Give the server a moment to initialize
+    try:
+        window.evaluate_js("if (window.showCleanupOverlay) window.showCleanupOverlay('Stopping proxy server and clearing resources...');")
+    except Exception as e:
+        print(f"Error updating UI to cleanup: {e}")
+        
+    try:
+        print("  → Logging out from router...")
+        do_logout()
+    except Exception as e:
+        print(f"Error during router logout: {e}")
+
+    global http_server
+    if http_server:
+        try:
+            print("  → Shutting down proxy server...")
+            http_server.shutdown()
+            http_server = None
+            print("  → Proxy server shut down.")
+        except Exception as e:
+            print(f"Error shutting down proxy server: {e}")
+
+    try:
+        window.evaluate_js("if (window.showCleanupOverlay) window.showCleanupOverlay('Resources clean. Exiting application...');")
+    except Exception:
+        pass
+        
+    time.sleep(0.5)
+    
+    cleanup_completed = True
+    print("✅ Cleanup completed. Destroying window.")
+    window.destroy()
+
+
+def on_closing(window):
+    global cleanup_completed
+    if not cleanup_completed:
+        print("⏳ Intercepted window closing. Starting cleanup...")
+        cleanup_thread = threading.Thread(target=perform_cleanup, args=(window,), daemon=True)
+        cleanup_thread.start()
+        return False
+    print("👋 Window closing finalized.")
+    return True
+
+
+if __name__ == "__main__":
+    # 1. Start the HTTP server in a background daemon thread
+    run_server_thread()
+    
+    # 2. Give the server a moment to initialize (non-critical fallback)
     time.sleep(1)
     
-    # 3. Create and start the native webview window
-    print("  → Launching PyWebView window...")
-    webview.create_window(
+    # 3. Create and start the native webview window using local index.html and JS API
+    print("  → Launching PyWebView window (serverless mode)...")
+    window = webview.create_window(
         title='ZTE Router Dashboard', 
-        url=f'http://localhost:{PORT}',
+        url=resource_path('index.html'),
         width=1200,
         height=800,
         min_size=(800, 600),
         text_select=True,
-        confirm_close=True
+        confirm_close=False,  # Custom overlay handles cleanup
+        js_api=Api()
     )
+    window.events.closing += lambda: on_closing(window)
     webview.start()
