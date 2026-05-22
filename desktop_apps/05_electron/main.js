@@ -173,8 +173,13 @@ async function bootstrapApp() {
 }
 
 function createWindow() {
+  const iconPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'icon.png') 
+    : path.join(__dirname, 'resources', 'icon.png');
+
   mainWindow = new BrowserWindow({
     title: "Router Check (Electron)",
+    icon: iconPath,
     width: 1200,
     height: 800,
     webPreferences: {

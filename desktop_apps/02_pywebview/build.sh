@@ -58,6 +58,8 @@ echo "🏗️  Building standalone executable..."
 pyinstaller --onedir --windowed --noconfirm --clean \
     --add-data "index.html:." \
     --add-data "dashboard.js:." \
+    --add-data "icon.png:." \
+    --icon "resources/icon.icns" \
     --name "RouterCheck-WebView" \
     server.py
 

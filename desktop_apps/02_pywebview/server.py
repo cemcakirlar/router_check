@@ -479,6 +479,7 @@ if __name__ == "__main__":
     window = webview.create_window(
         title='Router Check (PyWebView)', 
         url=resource_path('index.html'),
+        icon=resource_path('icon.png'),
         width=1200,
         height=800,
         min_size=(800, 600),

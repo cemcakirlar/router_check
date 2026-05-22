@@ -18,7 +18,8 @@
   "build": {
     "appId": "com.router.check",
     "mac": {
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns"
     },
     "extraResources": [
       {
@@ -29,7 +30,8 @@
         ]
       },
       "index.html",
-      "dashboard.js"
+      "dashboard.js",
+      "icon.png"
     ],
     "files": [
       "main.js",
