@@ -1,6 +1,15 @@
 // --- Configuration ---
 // All requests go through the local proxy server (port 8080) to avoid CORS issues.
 const PROXY_URL = window.location.port === "8080" ? "" : "http://localhost:8080";
+
+let isEel = typeof eel !== "undefined";
+
+window.showCleanupOverlay = function(message) {
+  const cleanupOverlay = document.getElementById("cleanupOverlay");
+  const cleanupMessage = document.getElementById("cleanupMessage");
+  if (cleanupOverlay) cleanupOverlay.classList.add("active");
+  if (cleanupMessage) cleanupMessage.innerText = message;
+};
 const COMMANDS = [
   "modem_main_state",
   "signalbar",
@@ -118,9 +127,13 @@ function applyDataToUI(data) {
   });
 }
 
-// --- API Logic (through local proxy) ---
+// --- API Logic (through local proxy or Eel IPC) ---
 async function login() {
   try {
+    if (isEel && window.eel?.eel_login) {
+      const result = await window.eel.eel_login()();
+      return result.result === "0" || result.result === "ok";
+    }
     const response = await fetch(`${PROXY_URL}/api/login`);
     const result = await response.json();
     return result.result === "0" || result.result === "ok";
@@ -138,6 +151,10 @@ async function logout() {
   }
 
   try {
+    if (isEel && window.eel?.eel_logout) {
+      const result = await window.eel.eel_logout()();
+      return result.result === "0" || result.result === "ok";
+    }
     const response = await fetch(`${PROXY_URL}/api/logout`);
     const result = await response.json();
     return result.result === "0" || result.result === "ok";
@@ -149,6 +166,9 @@ async function logout() {
 
 async function fetchRouterData() {
   try {
+    if (isEel && window.eel?.eel_fetch_data) {
+      return await window.eel.eel_fetch_data(COMMANDS.join(","))();
+    }
     const params = new URLSearchParams({ cmd: COMMANDS.join(",") });
     const response = await fetch(`${PROXY_URL}/api/data?${params}`);
     return await response.json();
@@ -160,6 +180,9 @@ async function fetchRouterData() {
 
 async function fetchStationList() {
   try {
+    if (isEel && window.eel?.eel_fetch_stations) {
+      return await window.eel.eel_fetch_stations()();
+    }
     const response = await fetch(`${PROXY_URL}/api/stations`);
     return await response.json();
   } catch (e) {
@@ -169,6 +192,9 @@ async function fetchStationList() {
 
 async function fetchStaticIpList() {
   try {
+    if (isEel && window.eel?.eel_fetch_static_ips) {
+      return await window.eel.eel_fetch_static_ips()();
+    }
     const response = await fetch(`${PROXY_URL}/api/static_ips`);
     return await response.json();
   } catch (e) {
@@ -465,29 +491,142 @@ function init() {
     }
   });
 
-  document.getElementById("stopServerBtn").addEventListener("click", async () => {
-    if (!confirm("Are you sure you want to stop the local proxy server?")) return;
+  // Custom Confirm Modal Logic
+  const modal = document.getElementById("confirmModal");
+  const cancelBtn = document.getElementById("cancelStopBtn");
+  const confirmBtn = document.getElementById("confirmStopBtn");
+
+  function showConfirmModal() {
+    modal.style.display = "flex";
+    setTimeout(() => {
+      modal.style.opacity = "1";
+      modal.firstElementChild.style.transform = "scale(1)";
+    }, 50);
+  }
+
+  function hideConfirmModal() {
+    modal.style.opacity = "0";
+    modal.firstElementChild.style.transform = "scale(0.9)";
+    setTimeout(() => {
+      modal.style.display = "none";
+    }, 300);
+  }
+
+  document.getElementById("stopServerBtn").addEventListener("click", () => {
+    showConfirmModal();
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    hideConfirmModal();
+  });
+
+  confirmBtn.addEventListener("click", async () => {
+    hideConfirmModal();
     const btn = document.getElementById("stopServerBtn");
     btn.innerText = "STOPPING...";
     btn.disabled = true;
     try {
-      await fetch(`${PROXY_URL}/api/stop`);
+      if (isEel && window.eel?.eel_stop_server) {
+        await window.eel.eel_stop_server()();
+      } else {
+        await fetch(`${PROXY_URL}/api/stop`);
+      }
+      
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+
       document.body.innerHTML = `
-                <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif;">
-                    <h1 style="color: #ff5555;">Server Stopped</h1>
-                    <p style="color: #94a3b8;">The local proxy has been shut down. You can close this tab.</p>
-                </div>
-            `;
+        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 2rem;">
+            <h1 style="color: #ff5555; margin-bottom: 1rem;">Server Stopped</h1>
+            <p style="color: #94a3b8; margin-bottom: 2rem;">The local proxy has been shut down.</p>
+            <button id="restartServerBtn" style="background: linear-gradient(135deg, #00f2ff, #7000ff); border: none; color: white; padding: 1rem 2rem; border-radius: 1rem; font-weight: 700; cursor: pointer; font-size: 1rem; box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);">
+                START SERVER
+            </button>
+        </div>
+      `;
+
+      document.getElementById("restartServerBtn").addEventListener("click", async () => {
+        const rBtn = document.getElementById("restartServerBtn");
+        rBtn.innerText = "STARTING...";
+        rBtn.disabled = true;
+        if (isEel && window.eel?.eel_restart_server) {
+          await window.eel.eel_restart_server()();
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          rBtn.innerText = "START SERVER";
+          rBtn.disabled = false;
+          alert("Restarting the server is only supported in the Desktop App.");
+        }
+      });
     } catch (e) {
       console.error("Stop failed:", e);
+      btn.innerText = "STOP SERVER";
+      btn.disabled = false;
     }
+  });
+
+  // Startup Bootstrap Overlay Logic
+  async function startBootstrap() {
+    const bootstrapTitle = document.getElementById("bootstrapTitle");
+    const bootstrapMessage = document.getElementById("bootstrapMessage");
+    const bootstrapProgressBar = document.getElementById("bootstrapProgressBar");
+    const bootstrapRetryBtn = document.getElementById("bootstrapRetryBtn");
+    const bootstrapOverlay = document.getElementById("bootstrapOverlay");
+
+    bootstrapOverlay.classList.add("active");
+    bootstrapTitle.innerText = "BOOTSTRAPPING APPLICATION";
+    bootstrapMessage.innerText = "Connecting to router diagnostic interfaces...";
+    bootstrapProgressBar.style.width = "20%";
+    bootstrapProgressBar.style.background = "";
+    bootstrapProgressBar.style.boxShadow = "";
+    bootstrapRetryBtn.style.display = "none";
+
+    setTimeout(async () => {
+      bootstrapProgressBar.style.width = "60%";
+      bootstrapMessage.innerText = isEel 
+        ? "Establishing IPC Bridge connection..." 
+        : "Establishing fallback HTTP Proxy connection...";
+      
+      try {
+        const data = await fetchRouterData();
+        if (data && (data.network_provider !== undefined || data.result !== undefined)) {
+          bootstrapProgressBar.style.width = "100%";
+          bootstrapMessage.innerText = "Connected to router. Opening dashboard...";
+          setTimeout(() => {
+            bootstrapOverlay.classList.remove("active");
+            if (UI.autoRefresh.checked && !refreshInterval) {
+              refreshInterval = setInterval(refresh, 1000);
+            }
+            refresh();
+          }, 800);
+        } else {
+          throw new Error("Could not reach router.");
+        }
+      } catch (e) {
+        bootstrapTitle.innerText = "STARTUP FAILURE";
+        bootstrapTitle.style.background = "linear-gradient(to right, #ff5555, #ff9999)";
+        bootstrapTitle.style.webkitBackgroundClip = "text";
+        bootstrapTitle.style.webkitTextFillColor = "transparent";
+        bootstrapMessage.innerHTML = `<span style="color: var(--danger); font-weight: 600;">Router unreachable. Please verify connection.</span>`;
+        bootstrapProgressBar.style.width = "100%";
+        bootstrapProgressBar.style.background = "var(--danger)";
+        bootstrapProgressBar.style.boxShadow = "0 0 10px rgba(239, 68, 68, 0.5)";
+        bootstrapRetryBtn.style.display = "block";
+      }
+    }, 1000);
+  }
+
+  document.getElementById("bootstrapRetryBtn").addEventListener("click", () => {
+    startBootstrap();
   });
 
   // Default to Auto-Refresh ON
   UI.autoRefresh.checked = true;
-  refreshInterval = setInterval(refresh, 1000);
-  
-  refresh();
+  startBootstrap();
 }
 
 init();

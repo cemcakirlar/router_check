@@ -20,6 +20,9 @@ import http.cookies
 import threading
 import sys
 import webbrowser
+import socket
+import subprocess
+import signal
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -29,6 +32,75 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
+
+
+def check_and_resolve_port_conflict(port):
+    """Check if port is occupied and resolve it by killing the process if needed."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("0.0.0.0", port))
+        s.close()
+        return False
+    except socket.error:
+        print(f"⚠️ Port {port} is occupied. Attempting conflict recovery...")
+        if sys.platform == 'darwin':
+            try:
+                output = subprocess.check_output(["lsof", "-t", "-i", f"tcp:{port}"], text=True)
+                pids = [pid.strip() for pid in output.split("\n") if pid.strip()]
+                print(f"🔍 Found PIDs using port {port}: {pids}")
+                for pid in pids:
+                    print(f"💀 Killing PID: {pid}")
+                    subprocess.call(["kill", "-9", pid])
+                time.sleep(1.0)
+                s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    s2.bind(("0.0.0.0", port))
+                    s2.close()
+                    print(f"✅ Successfully reclaimed port {port}.")
+                    return True
+                except socket.error:
+                    print(f"❌ Port {port} is still occupied after kill attempt.")
+                    return False
+            except Exception as ex:
+                print(f"⚠️ Failed to resolve port conflict: {ex}")
+                return False
+        else:
+            print("⚠️ Port conflict resolution is only supported on macOS.")
+            return False
+
+
+server = None
+cleanup_completed = False
+
+
+def perform_cleanup():
+    global cleanup_completed, server
+    if cleanup_completed:
+        return
+    print("🧹 Cleaning up resources...")
+    try:
+        print("  → Logging out from router...")
+        do_logout()
+    except Exception as e:
+        print(f"Error during router logout: {e}")
+    if server:
+        try:
+            print("  → Closing server socket...")
+            server.server_close()
+        except Exception as e:
+            print(f"Error closing server: {e}")
+    cleanup_completed = True
+    print("✅ Cleanup completed.")
+
+
+def signal_handler(signum, frame):
+    print(f"Received signal {signum}. Starting cleanup...")
+    perform_cleanup()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 ROUTER_IP = "192.168.0.1"
 PASSWORD = "FoldMund2204*"
@@ -280,6 +352,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/stop":
             print("  → STOPPING SERVER...")
             self.send_json({"result": "stopping"})
+            # Perform cleanup (including router logout)
+            perform_cleanup()
             # Shutdown after a short delay to allow response to be sent
             threading.Timer(1.0, self.server.shutdown).start()
             return
@@ -335,9 +409,10 @@ def open_browser():
     webbrowser.open(f"http://localhost:{PORT}")
 
 if __name__ == "__main__":
+    check_and_resolve_port_conflict(PORT)
     server = http.server.HTTPServer(("", PORT), ProxyHandler)
     print(f"╔══════════════════════════════════════════════╗")
-    print(f"║   ZTE Router Dashboard Proxy Server          ║")
+    print(f"║   Router Check (AutoBrowser) Proxy Server  ║")
     print(f"║   Open: http://localhost:{PORT}                ║")
     print(f"╚══════════════════════════════════════════════╝")
     
@@ -346,6 +421,6 @@ if __name__ == "__main__":
     
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         print("\nServer stopped.")
-        server.server_close()
+        perform_cleanup()

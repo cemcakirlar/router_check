@@ -509,7 +509,7 @@ if __name__ == "__main__":
     # 3. Create and start the native webview window using local index.html and JS API
     print("  → Launching PyWebView window (serverless mode)...")
     window = webview.create_window(
-        title='ZTE Router Dashboard', 
+        title='Router Check (PyWebView)', 
         url=resource_path('index.html'),
         width=1200,
         height=800,

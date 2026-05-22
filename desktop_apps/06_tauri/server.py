@@ -328,7 +328,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 if __name__ == "__main__":
     server = http.server.HTTPServer(("", PORT), ProxyHandler)
     print(f"╔══════════════════════════════════════════════╗")
-    print(f"║   ZTE Router Dashboard Proxy Server          ║")
+    print(f"║   Router Check (Tauri) Proxy Server          ║")
     print(f"║   Open: http://localhost:{PORT}                ║")
     print(f"╚══════════════════════════════════════════════╝")
     try:

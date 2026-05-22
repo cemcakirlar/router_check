@@ -174,7 +174,7 @@ async function bootstrapApp() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    title: "ZTE Router Dashboard",
+    title: "Router Check (Electron)",
     width: 1200,
     height: 800,
     webPreferences: {

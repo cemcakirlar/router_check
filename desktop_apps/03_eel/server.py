@@ -20,6 +20,9 @@ import http.cookies
 import threading
 import sys
 import eel
+import socket
+import subprocess
+import signal
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -28,6 +31,42 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
+
+
+def check_and_resolve_port_conflict(port):
+    """Check if port is occupied and resolve it by killing the process if needed."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("0.0.0.0", port))
+        s.close()
+        return False
+    except socket.error:
+        print(f"⚠️ Port {port} is occupied. Attempting conflict recovery...")
+        if sys.platform == 'darwin':
+            try:
+                output = subprocess.check_output(["lsof", "-t", "-i", f"tcp:{port}"], text=True)
+                pids = [pid.strip() for pid in output.split("\n") if pid.strip()]
+                print(f"🔍 Found PIDs using port {port}: {pids}")
+                for pid in pids:
+                    print(f"💀 Killing PID: {pid}")
+                    subprocess.call(["kill", "-9", pid])
+                time.sleep(1.0)
+                s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    s2.bind(("0.0.0.0", port))
+                    s2.close()
+                    print(f"✅ Successfully reclaimed port {port}.")
+                    return True
+                except socket.error:
+                    print(f"❌ Port {port} is still occupied after kill attempt.")
+                    return False
+            except Exception as ex:
+                print(f"⚠️ Failed to resolve port conflict: {ex}")
+                return False
+        else:
+            print("⚠️ Port conflict resolution is only supported on macOS.")
+            return False
+
 
 ROUTER_IP = "192.168.0.1"
 PASSWORD = "FoldMund2204*"
@@ -279,6 +318,10 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/stop":
             print("  → STOPPING SERVER...")
             self.send_json({"result": "stopping"})
+            try:
+                do_logout()
+            except Exception:
+                pass
             # Shutdown after a short delay to allow response to be sent
             threading.Timer(1.0, self.server.shutdown).start()
             return
@@ -328,16 +371,150 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b"File not found")
 
 
+@eel.expose
+def eel_login():
+    """API bridge for login."""
+    res = do_login()
+    return res if res is not None else {"result": "failure", "error": "Could not reach router"}
+
+
+@eel.expose
+def eel_logout():
+    """API bridge for logout."""
+    res = do_logout()
+    return res if res is not None else {"result": "failure", "error": "Could not reach router"}
+
+
+@eel.expose
+def eel_fetch_data(commands):
+    """API bridge for data fetch."""
+    res = do_fetch_data(commands)
+    if res:
+        log_diff("DATA", last_state["data"], res)
+        last_state["data"].update(res)
+        return res
+    return {"error": "Failed to fetch data"}
+
+
+@eel.expose
+def eel_fetch_stations():
+    """API bridge for stations."""
+    res = do_fetch_stations()
+    if res:
+        log_diff("STATIONS", last_state["stations"], res)
+        last_state["stations"] = res
+    return res
+
+
+@eel.expose
+def eel_fetch_static_ips():
+    """API bridge for static IPs."""
+    res = do_fetch_static_ips()
+    if res:
+        log_diff("STATIC_IPS", last_state["static_ips"], res)
+        last_state["static_ips"] = res
+    return res
+
+
+@eel.expose
+def eel_stop_server():
+    """Stop the background HTTP proxy server."""
+    global http_server
+    if http_server:
+        try:
+            print("  → Shutting down proxy server via Eel IPC...")
+            http_server.shutdown()
+            http_server = None
+            return {"result": "ok"}
+        except Exception as e:
+            print(f"Error shutting down proxy server: {e}")
+            return {"result": "error", "message": str(e)}
+    return {"result": "ok"}
+
+
+@eel.expose
+def eel_restart_server():
+    """Restart the background HTTP proxy server."""
+    global http_server
+    if not http_server:
+        try:
+            print("  → Restarting proxy server via Eel IPC...")
+            run_server_thread()
+            return {"result": "ok"}
+        except Exception as e:
+            print(f"Error restarting proxy server: {e}")
+            return {"result": "error", "message": str(e)}
+    return {"result": "ok"}
+
+
+http_server = None
+server_thread = None
+
+
 def run_server():
     """Function to run the proxy server in a background thread."""
-    server = http.server.HTTPServer(("", PORT), ProxyHandler)
-    print(f"  → Proxy Server started on http://localhost:{PORT}")
-    server.serve_forever()
+    global http_server
+    try:
+        check_and_resolve_port_conflict(PORT)
+        http_server = http.server.HTTPServer(("", PORT), ProxyHandler)
+        print(f"  → Proxy Server started on http://localhost:{PORT}")
+        http_server.serve_forever()
+    except Exception as e:
+        print(f"⚠️ Failed to start fallback HTTP proxy server on port {PORT}: {e}")
+
+
+def run_server_thread():
+    global server_thread
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
+
+
+cleanup_completed = False
+
+
+def perform_cleanup():
+    global cleanup_completed
+    if cleanup_completed:
+        return
+    print("🧹 Cleaning up resources...")
+    try:
+        print("  → Logging out from router...")
+        do_logout()
+    except Exception as e:
+        print(f"Error during router logout: {e}")
+
+    global http_server
+    if http_server:
+        try:
+            print("  → Shutting down proxy server...")
+            http_server.shutdown()
+            http_server = None
+            print("  → Proxy server shut down.")
+        except Exception as e:
+            print(f"Error shutting down proxy server: {e}")
+    cleanup_completed = True
+    print("✅ Cleanup completed.")
+
+
+def signal_handler(signum, frame):
+    print(f"Received signal {signum}. Starting cleanup...")
+    perform_cleanup()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+
+def on_close(page, sockets):
+    print("👋 Eel window closed. Cleaning up...")
+    perform_cleanup()
+    sys.exit(0)
+
 
 if __name__ == "__main__":
     # 1. Start the proxy server in a daemon thread
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
+    run_server_thread()
     
     # 2. Initialize Eel with the 'web' directory
     # Note: We are using Eel primarily as a window manager here.
@@ -354,7 +531,9 @@ if __name__ == "__main__":
             "index.html", 
             mode='chrome', # Options: 'chrome', 'electron', 'edge', 'default'
             size=(1200, 800),
-            position=(100, 100)
+            position=(100, 100),
+            close_callback=on_close
         )
     except (SystemExit, MemoryError, KeyboardInterrupt):
         print("\nEel stopped.")
+        perform_cleanup()
