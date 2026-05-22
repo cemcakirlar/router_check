@@ -1,11 +1,12 @@
 {
   "name": "router-check",
+  "productName": "Router Check (Electron)",
   "version": "1.0.0",
   "description": "ZTE Router Dashboard",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "package": "electron-builder"
+    "build": "electron-builder"
   },
   "keywords": [],
   "author": "",

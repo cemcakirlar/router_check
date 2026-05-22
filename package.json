@@ -1,0 +1,12 @@
+{
+  "name": "router-check-desktop-apps",
+  "version": "1.0.0",
+  "description": "Monorepo to build and bundle all RouterCheck desktop application variants",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-all.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

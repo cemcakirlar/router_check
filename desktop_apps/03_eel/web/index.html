@@ -227,16 +227,6 @@
             box-shadow: 0 6px 20px rgba(0, 242, 255, 0.4);
         }
 
-        #stopServerBtn {
-            background: rgba(239, 68, 68, 0.05);
-            color: var(--danger);
-            border-color: rgba(239, 68, 68, 0.2);
-        }
-
-        #stopServerBtn:hover {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: var(--danger);
-        }
 
         .auto-toggle {
             display: flex;
@@ -572,22 +562,6 @@
     </div>
 </div>
 
-<!-- Custom Confirm Modal -->
-<div id="confirmModal" style="display: none; position: fixed; inset: 0; background: rgba(5, 10, 20, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 10000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
-    <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 1.5rem; padding: 2rem; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6); transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);">
-        <div style="font-size: 3rem; color: var(--danger); margin-bottom: 1rem;">⚠️</div>
-        <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.75rem; background: linear-gradient(to right, #ff5555, #ff9999); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Stop Proxy Server?</h2>
-        <p style="color: var(--text-dim); font-size: 0.9rem; line-height: 1.5; margin-bottom: 2rem;">This will shut down the local proxy server. You will lose the active router connection until you restart it.</p>
-        <div style="display: flex; gap: 1rem; justify-content: center;">
-            <button id="cancelStopBtn" style="flex: 1; background: rgba(255, 255, 255, 0.05); color: var(--text-main); border: 1px solid var(--border); padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                CANCEL
-            </button>
-            <button id="confirmStopBtn" style="flex: 1; background: var(--danger); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">
-                STOP
-            </button>
-        </div>
-    </div>
-</div>
 
 <div class="container">
     <header>
@@ -610,7 +584,6 @@
             <button id="loginBtn" class="refresh-btn">LOGIN</button>
             <button id="logoutBtn" class="refresh-btn">LOGOUT</button>
             <button id="refreshBtn" class="refresh-btn">REFRESH</button>
-            <button id="stopServerBtn" class="refresh-btn">STOP SERVER</button>
         </div>
     </header>
 

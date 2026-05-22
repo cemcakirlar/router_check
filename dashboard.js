@@ -464,23 +464,6 @@ function init() {
     }
   });
 
-  document.getElementById("stopServerBtn").addEventListener("click", async () => {
-    if (!confirm("Are you sure you want to stop the local proxy server?")) return;
-    const btn = document.getElementById("stopServerBtn");
-    btn.innerText = "STOPPING...";
-    btn.disabled = true;
-    try {
-      await fetch("/api/stop");
-      document.body.innerHTML = `
-                <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif;">
-                    <h1 style="color: #ff5555;">Server Stopped</h1>
-                    <p style="color: #94a3b8;">The local proxy has been shut down. You can close this tab.</p>
-                </div>
-            `;
-    } catch (e) {
-      console.error("Stop failed:", e);
-    }
-  });
 
   // Default to Auto-Refresh ON
   UI.autoRefresh.checked = true;

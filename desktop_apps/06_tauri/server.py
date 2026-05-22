@@ -272,12 +272,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"result": "failure", "error": "Could not reach router"}, 502)
             return
 
-        elif path == "/api/stop":
-            print("  → STOPPING SERVER...")
-            self.send_json({"result": "stopping"})
-            # Shutdown after a short delay to allow response to be sent
-            threading.Timer(1.0, self.server.shutdown).start()
-            return
+
 
         # 404
         self.send_response(404)

@@ -215,23 +215,6 @@ async fn bootstrap_app(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
-async fn restart_server(app: tauri::AppHandle) -> Result<(), String> {
-    println!("🔄 Restart request received from UI via Tauri command");
-    bootstrap_app(app).await
-}
-
-#[tauri::command]
-fn stop_server(app: tauri::AppHandle) {
-    let state = app.state::<AppState>();
-    let mut child_guard = state.sidecar_child.lock().unwrap();
-    if let Some(child) = child_guard.take() {
-        let _ = child.kill();
-        println!("🛑 Python sidecar stopped via Tauri command");
-    } else {
-        println!("⚠️ Stop requested but no running sidecar found");
-    }
-}
 
 fn main() {
     tauri::Builder::default()
@@ -284,9 +267,7 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            bootstrap_app,
-            restart_server,
-            stop_server
+            bootstrap_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

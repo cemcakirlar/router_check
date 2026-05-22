@@ -236,21 +236,6 @@ ipcMain.on('bootstrap-app', () => {
   bootstrapApp();
 });
 
-ipcMain.on('restart-server', () => {
-  console.log("🔄 Restart request received from UI via Electron IPC");
-  bootstrapApp();
-});
-
-ipcMain.on('stop-server', () => {
-  if (pyServer) {
-    pyServer.kill();
-    pyServer = null;
-    console.log("🛑 Python sidecar stopped via Electron IPC");
-  } else {
-    console.log("⚠️ Stop requested but no running sidecar found");
-  }
-});
-
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {

@@ -315,16 +315,6 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.send_json({"result": "failure", "error": "Could not reach router"}, 502)
             return
 
-        elif path == "/api/stop":
-            print("  → STOPPING SERVER...")
-            self.send_json({"result": "stopping"})
-            try:
-                do_logout()
-            except Exception:
-                pass
-            # Shutdown after a short delay to allow response to be sent
-            threading.Timer(1.0, self.server.shutdown).start()
-            return
 
         # 404
         self.send_response(404)
@@ -416,35 +406,6 @@ def eel_fetch_static_ips():
     return res
 
 
-@eel.expose
-def eel_stop_server():
-    """Stop the background HTTP proxy server."""
-    global http_server
-    if http_server:
-        try:
-            print("  → Shutting down proxy server via Eel IPC...")
-            http_server.shutdown()
-            http_server = None
-            return {"result": "ok"}
-        except Exception as e:
-            print(f"Error shutting down proxy server: {e}")
-            return {"result": "error", "message": str(e)}
-    return {"result": "ok"}
-
-
-@eel.expose
-def eel_restart_server():
-    """Restart the background HTTP proxy server."""
-    global http_server
-    if not http_server:
-        try:
-            print("  → Restarting proxy server via Eel IPC...")
-            run_server_thread()
-            return {"result": "ok"}
-        except Exception as e:
-            print(f"Error restarting proxy server: {e}")
-            return {"result": "error", "message": str(e)}
-    return {"result": "ok"}
 
 
 http_server = None

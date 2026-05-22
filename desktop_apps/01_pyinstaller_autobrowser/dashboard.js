@@ -464,60 +464,6 @@ function init() {
     }
   });
 
-  // Custom Confirm Modal Logic
-  const modal = document.getElementById("confirmModal");
-  const cancelBtn = document.getElementById("cancelStopBtn");
-  const confirmBtn = document.getElementById("confirmStopBtn");
-
-  function showConfirmModal() {
-    modal.style.display = "flex";
-    setTimeout(() => {
-      modal.style.opacity = "1";
-      modal.firstElementChild.style.transform = "scale(1)";
-    }, 50);
-  }
-
-  function hideConfirmModal() {
-    modal.style.opacity = "0";
-    modal.firstElementChild.style.transform = "scale(0.9)";
-    setTimeout(() => {
-      modal.style.display = "none";
-    }, 300);
-  }
-
-  document.getElementById("stopServerBtn").addEventListener("click", () => {
-    showConfirmModal();
-  });
-
-  cancelBtn.addEventListener("click", () => {
-    hideConfirmModal();
-  });
-
-  confirmBtn.addEventListener("click", async () => {
-    hideConfirmModal();
-    const btn = document.getElementById("stopServerBtn");
-    btn.innerText = "STOPPING...";
-    btn.disabled = true;
-    try {
-      await fetch("/api/stop");
-      
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-        refreshInterval = null;
-      }
-
-      document.body.innerHTML = `
-        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 2rem;">
-            <h1 style="color: #ff5555; margin-bottom: 1rem;">Server Stopped</h1>
-            <p style="color: #94a3b8; margin-bottom: 2rem;">The local proxy has been shut down. You can close this tab.</p>
-        </div>
-      `;
-    } catch (e) {
-      console.error("Stop failed:", e);
-      btn.innerText = "STOP SERVER";
-      btn.disabled = false;
-    }
-  });
 
   // Startup Bootstrap Overlay Logic
   async function startBootstrap() {
