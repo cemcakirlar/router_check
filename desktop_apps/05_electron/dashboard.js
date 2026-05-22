@@ -436,6 +436,65 @@ const TRENDS = {
   }),
 };
 
+// --- Bootstrap Logic ---
+async function startBootstrap() {
+  const bootstrapOverlay = document.getElementById("bootstrapOverlay");
+  const bootstrapTitle = document.getElementById("bootstrapTitle");
+  const bootstrapMessage = document.getElementById("bootstrapMessage");
+  const bootstrapProgressBar = document.getElementById("bootstrapProgressBar");
+  const bootstrapRetryBtn = document.getElementById("bootstrapRetryBtn");
+
+  // Show overlay, hide retry button, reset title and progress
+  bootstrapOverlay.classList.add("active");
+  bootstrapTitle.innerText = "BOOTSTRAPPING APPLICATION";
+  bootstrapTitle.style.background = "linear-gradient(to right, var(--accent-primary), var(--accent-secondary))";
+  bootstrapTitle.style.webkitBackgroundClip = "text";
+  bootstrapTitle.style.webkitTextFillColor = "transparent";
+  bootstrapMessage.innerText = "Initializing bootstrap sequence...";
+  bootstrapProgressBar.style.width = "0%";
+  bootstrapRetryBtn.style.display = "none";
+
+  // Check if we are running in Electron
+  if (window.electron && window.electron.bootstrapApp) {
+    try {
+      console.log("🚀 Requesting bootstrapApp from Electron main process...");
+      window.electron.bootstrapApp();
+    } catch (err) {
+      console.error("Bootstrap failed:", err);
+      bootstrapTitle.innerText = "STARTUP FAILURE";
+      bootstrapTitle.style.background = "linear-gradient(to right, #ff5555, #ff9999)";
+      bootstrapTitle.style.webkitBackgroundClip = "text";
+      bootstrapTitle.style.webkitTextFillColor = "transparent";
+      bootstrapMessage.innerHTML = `<span style="color: var(--danger);">Error: ${err}</span>`;
+      bootstrapProgressBar.style.width = "100%";
+      bootstrapProgressBar.style.background = "var(--danger)";
+      bootstrapProgressBar.style.boxShadow = "0 0 10px rgba(239, 68, 68, 0.5)";
+      bootstrapRetryBtn.style.display = "block";
+    }
+  } else {
+    // If not in Electron (e.g. running in standard browser/web environment), hide after a mock loading
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 25;
+      bootstrapProgressBar.style.width = `${progress}%`;
+      if (progress === 25) bootstrapMessage.innerText = "Checking port conflicts (Mock)...";
+      if (progress === 50) bootstrapMessage.innerText = "Spawning mock services...";
+      if (progress === 75) bootstrapMessage.innerText = "Probing mock endpoints...";
+      if (progress >= 100) {
+        clearInterval(interval);
+        bootstrapMessage.innerText = "Mock services are ready.";
+        setTimeout(() => {
+          bootstrapOverlay.classList.remove("active");
+          if (UI.autoRefresh.checked && !refreshInterval) {
+            refreshInterval = setInterval(refresh, 1000);
+          }
+          refresh();
+        }, 500);
+      }
+    }, 250);
+  }
+}
+
 // --- Initialization ---
 function init() {
   UI.fields = document.querySelectorAll("[data-field]");
@@ -465,7 +524,7 @@ function init() {
 
   UI.autoRefresh.addEventListener("change", (e) => {
     if (e.target.checked) {
-      refreshInterval = setInterval(refresh, 1000);
+      if (!refreshInterval) refreshInterval = setInterval(refresh, 1000);
       refresh();
     } else {
       if (refreshInterval) clearInterval(refreshInterval);
@@ -473,13 +532,50 @@ function init() {
     }
   });
 
-  document.getElementById("stopServerBtn").addEventListener("click", async () => {
-    if (!confirm("Are you sure you want to stop the local proxy server?")) return;
+  const modal = document.getElementById("confirmModal");
+  const cancelBtn = document.getElementById("cancelStopBtn");
+  const confirmBtn = document.getElementById("confirmStopBtn");
+
+  const showConfirmModal = () => {
+    modal.style.display = "flex";
+    modal.offsetHeight; // Force reflow
+    modal.style.opacity = "1";
+    modal.firstElementChild.style.transform = "scale(1)";
+  };
+
+  const hideConfirmModal = () => {
+    modal.style.opacity = "0";
+    modal.firstElementChild.style.transform = "scale(0.9)";
+    setTimeout(() => {
+      modal.style.display = "none";
+    }, 300);
+  };
+
+  document.getElementById("stopServerBtn").addEventListener("click", () => {
+    showConfirmModal();
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    hideConfirmModal();
+  });
+
+  confirmBtn.addEventListener("click", async () => {
+    hideConfirmModal();
     const btn = document.getElementById("stopServerBtn");
     btn.innerText = "STOPPING...";
     btn.disabled = true;
     try {
-      await fetch(`${PROXY_URL}/api/stop`);
+      if (window.electron && window.electron.stopServer) {
+        window.electron.stopServer();
+      } else {
+        await fetch(`${PROXY_URL}/api/stop`);
+      }
+
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+
       document.body.innerHTML = `
                 <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 2rem;">
                     <h1 style="color: #ff5555; margin-bottom: 1rem;">Server Stopped</h1>
@@ -491,12 +587,17 @@ function init() {
             `;
 
       document.getElementById("restartServerBtn").addEventListener("click", () => {
+        const rBtn = document.getElementById("restartServerBtn");
+        rBtn.innerText = "STARTING...";
+        rBtn.disabled = true;
         if (window.electron && window.electron.restartServer) {
-          const rBtn = document.getElementById("restartServerBtn");
-          rBtn.innerText = "STARTING...";
-          rBtn.disabled = true;
           window.electron.restartServer();
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
         } else {
+          rBtn.innerText = "START SERVER";
+          rBtn.disabled = false;
           alert("Restarting the server is only supported in the Desktop App.");
         }
       });
@@ -507,11 +608,68 @@ function init() {
     }
   });
 
+  // Setup Electron Listeners
+  if (window.electron) {
+    // 1. Listen for bootstrap-status events
+    window.electron.onBootstrapStatus((payload) => {
+      console.log("📢 Received bootstrap status:", payload);
+      
+      const bootstrapTitle = document.getElementById("bootstrapTitle");
+      const bootstrapMessage = document.getElementById("bootstrapMessage");
+      const bootstrapProgressBar = document.getElementById("bootstrapProgressBar");
+      const bootstrapRetryBtn = document.getElementById("bootstrapRetryBtn");
+      const bootstrapOverlay = document.getElementById("bootstrapOverlay");
+
+      if (payload.status === "ready") {
+        bootstrapProgressBar.style.width = "100%";
+        bootstrapMessage.innerText = payload.message;
+        setTimeout(() => {
+          bootstrapOverlay.classList.remove("active");
+          // Start auto-refresh and execute initial refresh
+          if (UI.autoRefresh.checked && !refreshInterval) {
+            refreshInterval = setInterval(refresh, 1000);
+          }
+          refresh();
+        }, 600);
+      } else if (payload.status === "failed") {
+        bootstrapTitle.innerText = "STARTUP FAILURE";
+        bootstrapTitle.style.background = "linear-gradient(to right, #ff5555, #ff9999)";
+        bootstrapTitle.style.webkitBackgroundClip = "text";
+        bootstrapTitle.style.webkitTextFillColor = "transparent";
+        bootstrapMessage.innerHTML = `<span style="color: var(--danger); font-weight: 600;">${payload.message}</span>`;
+        bootstrapProgressBar.style.width = "100%";
+        bootstrapProgressBar.style.background = "var(--danger)";
+        bootstrapProgressBar.style.boxShadow = "0 0 10px rgba(239, 68, 68, 0.5)";
+        bootstrapRetryBtn.style.display = "block";
+      } else {
+        bootstrapMessage.innerText = payload.message;
+        bootstrapProgressBar.style.width = `${payload.percentage}%`;
+      }
+    });
+
+    // 2. Listen for cleanup-status events
+    window.electron.onCleanupStatus((status) => {
+      console.log("🧹 Received cleanup status:", status);
+      const cleanupOverlay = document.getElementById("cleanupOverlay");
+      const cleanupMessage = document.getElementById("cleanupMessage");
+
+      if (status === "teardown_started") {
+        cleanupOverlay.classList.add("active");
+        cleanupMessage.innerText = "Stopping proxy server and clearing resources...";
+      } else if (status === "teardown_complete") {
+        cleanupMessage.innerText = "Resources clean. Exiting application...";
+      }
+    });
+
+    // Wire up the bootstrap retry button
+    document.getElementById("bootstrapRetryBtn").addEventListener("click", () => {
+      startBootstrap();
+    });
+  }
+
   // Default to Auto-Refresh ON
   UI.autoRefresh.checked = true;
-  refreshInterval = setInterval(refresh, 1000);
-
-  refresh();
+  startBootstrap();
 }
 
 init();
