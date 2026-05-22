@@ -1,0 +1,16 @@
+{
+  "name": "router-check-tauri",
+  "version": "1.0.0",
+  "description": "ZTE Router Dashboard in Tauri",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "clean": "cargo clean --manifest-path src-tauri/Cargo.toml && rm -rf build dist src-tauri/bin src-tauri/target *.spec build_error.txt",
+    "setup": "bash build.sh",
+    "full-build": "npm run clean && npm run setup && npm run build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}
