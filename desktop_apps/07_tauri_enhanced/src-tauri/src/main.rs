@@ -224,6 +224,7 @@ fn main() {
                 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = apply_vibrancy(&window, NSVisualEffectMaterial::UnderWindowBackground, None, None);
+                    let _ = window.set_title("");
                 }
             }
             

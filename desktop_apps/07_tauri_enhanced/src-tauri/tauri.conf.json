@@ -13,6 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
+        "label": "main",
         "title": "Router Check (Enhanced)",
         "width": 1200,
         "height": 800,

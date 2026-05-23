@@ -73,6 +73,8 @@ header {
     border-bottom: 1px solid var(--border);
     /* Allow space for window traffic lights on macOS overlay mode */
     padding-left: 80px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 h1 {
@@ -416,6 +418,8 @@ tr:hover td {
     transition: opacity 0.3s ease, visibility 0.3s ease;
     opacity: 0;
     visibility: hidden;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .fullscreen-overlay.active {
