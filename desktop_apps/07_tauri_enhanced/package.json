@@ -1,0 +1,14 @@
+{
+  "name": "router-check-tauri-enhanced",
+  "version": "1.0.0",
+  "description": "ZTE Router Dashboard in Tauri (Enhanced)",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "clean": "cargo clean --manifest-path src-tauri/Cargo.toml && rm -rf src-tauri/target"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}
