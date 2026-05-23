@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Router Check (Enhanced)</title>
-    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="icon" type="image/png" href="/icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
 
 <!-- Startup Bootstrap Overlay -->
-<div id="bootstrapOverlay" class="fullscreen-overlay active">
+<div id="bootstrapOverlay" data-tauri-drag-region class="fullscreen-overlay active">
     <div class="overlay-card">
         <div class="spinner-container">
             <div class="spinner-glow"></div>
@@ -29,7 +29,7 @@
 </div>
 
 <!-- Settings Panel Modal -->
-<div id="settingsOverlay" class="fullscreen-overlay">
+<div id="settingsOverlay" data-tauri-drag-region class="fullscreen-overlay">
     <div class="overlay-card">
         <h2 class="overlay-title">Router Settings</h2>
         <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.5rem; text-align: left;">
@@ -52,15 +52,18 @@
     </div>
 </div>
 
+<!-- Toast Container for Notifications -->
+<div id="toastContainer" class="toast-container"></div>
+
 <div class="container">
-    <header>
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <img src="icon.png" alt="Logo" style="width: 38px; height: 38px; object-fit: contain; filter: drop-shadow(0 0 8px var(--accent-primary-glow));">
-            <div>
-                <h1>ROUTER CHECK</h1>
-                <div style="display: flex; gap: 1rem; align-items: center;">
-                    <p style="font-size: 0.75rem; color: var(--text-dim);">Live Diagnostic Dashboard</p>
-                    <p id="lastUpdate" data-field="lastUpdate" style="font-size: 0.75rem; color: var(--accent-primary); font-family: var(--font-mono); font-weight: 700;"></p>
+    <header data-tauri-drag-region>
+        <div data-tauri-drag-region style="display: flex; align-items: center; gap: 0.75rem; pointer-events: none;">
+            <img data-tauri-drag-region src="/icon.png" alt="Logo" style="width: 38px; height: 38px; object-fit: contain; filter: drop-shadow(0 0 8px var(--accent-primary-glow));">
+            <div data-tauri-drag-region>
+                <h1 data-tauri-drag-region style="pointer-events: none;">ROUTER CHECK</h1>
+                <div data-tauri-drag-region style="display: flex; gap: 1rem; align-items: center; pointer-events: none;">
+                    <p data-tauri-drag-region style="font-size: 0.75rem; color: var(--text-dim);">Live Diagnostic Dashboard</p>
+                    <p data-tauri-drag-region id="lastUpdate" data-field="lastUpdate" style="font-size: 0.75rem; color: var(--accent-primary); font-family: var(--font-mono); font-weight: 700;"></p>
                 </div>
             </div>
         </div>
@@ -249,7 +252,7 @@
     </div>
 </div>
 
-<script src="dashboard.js"></script>
+<script type="module" src="/src/dashboard.js"></script>
 
 </body>
 </html>

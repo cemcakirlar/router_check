@@ -3,19 +3,22 @@
   "version": "1.0.0",
   "identifier": "com.router.check.enhanced",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "devUrl": null,
-    "frontendDist": "../ui"
+    "beforeDevCommand": "npm run vite-dev",
+    "beforeBuildCommand": "npm run vite-build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "title": "Router Check (Enhanced)",
         "width": 1200,
         "height": 800,
-        "resizable": true
+        "resizable": true,
+        "transparent": true,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {

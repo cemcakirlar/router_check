@@ -6,13 +6,14 @@ authors = ["Cem Cakirlar"]
 edition = "2021"
 
 [build-dependencies]
-tauri-build = { version = "2.0.0", features = [] }
+tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0", features = [] }
+tauri = { version = "2.11.2", features = ["macos-private-api"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 reqwest = { version = "0.12", features = ["json", "cookies"] }
 tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
-tauri-plugin-shell = "2.0.0"
+tauri-plugin-shell = "2.3.5"
+window-vibrancy = "0.6.0"

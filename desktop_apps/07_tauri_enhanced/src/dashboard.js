@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
+
 // --- Configuration ---
 const COMMANDS = [
   "modem_main_state",
@@ -67,7 +69,8 @@ const UI = {
   fields: [], // Populated on init
 };
 
-let refreshInterval = null;
+let autoRefreshTimeout = null;
+let isRefreshing = false;
 let currentRouterIp = "192.168.0.1";
 
 // --- Utilities ---
@@ -93,6 +96,35 @@ function formatTime(seconds) {
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return `${d}d ${h}h ${m}m`;
+}
+
+// --- Toast System ---
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+      <span>${message}</span>
+      <span style="margin-left: 10px; cursor: pointer; opacity: 0.7;" class="toast-close">✕</span>
+  `;
+
+  // Manual close listener
+  toast.querySelector(".toast-close").addEventListener("click", () => {
+    toast.classList.add("fade-out");
+    setTimeout(() => toast.remove(), 300);
+  });
+
+  container.appendChild(toast);
+
+  // Auto-remove toast after 4 seconds
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.add("fade-out");
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 4000);
 }
 
 // --- Data Binding Logic ---
@@ -135,9 +167,10 @@ function applyDataToUI(data) {
 
 // --- API Calls using Tauri IPC ---
 async function fnCall(command, args = {}) {
-  if (window.__TAURI__) {
+  const isTauri = typeof window !== 'undefined' && window.__TAURI_INTERNALS__ !== undefined;
+  if (isTauri) {
     try {
-      return await window.__TAURI__.core.invoke(command, args);
+      return await invoke(command, args);
     } catch (e) {
       console.error(`Tauri command ${command} failed:`, e);
       throw e;
@@ -206,6 +239,9 @@ function mockCall(command, args) {
 
 // --- Connection Sequence ---
 async function refresh() {
+  if (isRefreshing) return;
+  isRefreshing = true;
+
   const isAuto = UI.autoRefresh.checked;
   if (!isAuto) UI.refreshBtn.disabled = true;
 
@@ -247,6 +283,7 @@ async function refresh() {
     UI.bootstrapActions.style.display = "flex";
   } finally {
     if (!isAuto) UI.refreshBtn.disabled = false;
+    isRefreshing = false;
   }
 }
 
@@ -467,6 +504,29 @@ const TRENDS = {
   }),
 };
 
+// --- Polling Queue Manager (recursive setTimeout) ---
+async function startPollingLoop() {
+  if (autoRefreshTimeout) {
+    clearTimeout(autoRefreshTimeout);
+  }
+
+  const poll = async () => {
+    if (UI.autoRefresh.checked) {
+      await refresh();
+      autoRefreshTimeout = setTimeout(poll, 2000);
+    }
+  };
+
+  await poll();
+}
+
+function stopPollingLoop() {
+  if (autoRefreshTimeout) {
+    clearTimeout(autoRefreshTimeout);
+    autoRefreshTimeout = null;
+  }
+}
+
 // --- Initialization & Event Listeners ---
 async function init() {
   UI.fields = document.querySelectorAll("[data-field]");
@@ -489,11 +549,9 @@ async function init() {
   // Auto-refresh checkbox
   UI.autoRefresh.addEventListener("change", (e) => {
     if (e.target.checked) {
-      if (!refreshInterval) refreshInterval = setInterval(refresh, 2000);
-      refresh();
+      startPollingLoop();
     } else {
-      if (refreshInterval) clearInterval(refreshInterval);
-      refreshInterval = null;
+      stopPollingLoop();
     }
   });
 
@@ -505,9 +563,15 @@ async function init() {
       const result = await fnCall("login");
       const success = result && (result.result === "0" || result.result === "ok");
       UI.loginBtn.innerText = success ? "LOGGED IN" : "FAILED";
-      if (success) setTimeout(refresh, 500);
+      if (success) {
+        showToast("Logged in successfully!", "success");
+        setTimeout(refresh, 500);
+      } else {
+        showToast("Login failed.", "error");
+      }
     } catch {
       UI.loginBtn.innerText = "FAILED";
+      showToast("An error occurred during login.", "error");
     } finally {
       setTimeout(() => {
         UI.loginBtn.innerText = "LOGIN";
@@ -523,9 +587,11 @@ async function init() {
     try {
       await fnCall("logout");
       UI.logoutBtn.innerText = "LOGGED OUT";
+      showToast("Logged out successfully.", "info");
       updateUI(null, null, null, false);
     } catch {
       UI.logoutBtn.innerText = "FAILED";
+      showToast("An error occurred during logout.", "error");
     } finally {
       setTimeout(() => {
         UI.logoutBtn.innerText = "LOGOUT";
@@ -548,7 +614,7 @@ async function init() {
     const password = UI.settingsPassword.value.trim();
     
     if (!ip) {
-      alert("Router IP cannot be empty.");
+      showToast("Router IP cannot be empty.", "error");
       return;
     }
 
@@ -561,6 +627,7 @@ async function init() {
       
       // Close overlay
       UI.settingsOverlay.classList.remove("active");
+      showToast("Configuration saved!", "success");
       
       // Trigger a clean reconnection
       clearUI("Reconnecting...");
@@ -571,7 +638,7 @@ async function init() {
       
       setTimeout(refresh, 500);
     } catch (e) {
-      alert(`Failed to save settings: ${e}`);
+      showToast(`Failed to save settings: ${e}`, "error");
     } finally {
       UI.settingsSaveBtn.innerText = "SAVE CHANGES";
       UI.settingsSaveBtn.disabled = false;
@@ -592,7 +659,7 @@ async function init() {
 
   // Default to Auto-Refresh ON
   UI.autoRefresh.checked = true;
-  if (!refreshInterval) refreshInterval = setInterval(refresh, 2000);
+  await startPollingLoop();
   
   // Start connection check
   setTimeout(refresh, 200);

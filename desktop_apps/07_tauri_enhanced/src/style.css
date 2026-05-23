@@ -1,6 +1,6 @@
 :root {
-    --bg-color: #030712;
-    --card-bg: rgba(17, 24, 39, 0.7);
+    --bg-color: rgba(3, 7, 18, 0.72);
+    --card-bg: rgba(17, 24, 39, 0.6);
     --card-hover-border: rgba(0, 242, 255, 0.3);
     --accent-primary: #00f2ff;
     --accent-primary-glow: rgba(0, 242, 255, 0.35);
@@ -16,7 +16,7 @@
     --border: rgba(255, 255, 255, 0.08);
     --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
-    --glass-blur: blur(16px);
+    --glass-blur: blur(20px);
 }
 
 * {
@@ -45,10 +45,12 @@
 
 body {
     font-family: var(--font-sans);
-    background-color: var(--bg-color);
+    background-color: transparent;
     color: var(--text-main);
     min-height: 100vh;
-    background: radial-gradient(circle at 80% 20%, #111827, #030712);
+    background: radial-gradient(circle at 80% 20%, rgba(17, 24, 39, 0.75), rgba(3, 7, 18, 0.75));
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
@@ -69,6 +71,8 @@ header {
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border);
+    /* Allow space for window traffic lights on macOS overlay mode */
+    padding-left: 80px;
 }
 
 h1 {
@@ -406,7 +410,7 @@ tr:hover td {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: rgba(3, 7, 18, 0.8);
+    background: rgba(3, 7, 18, 0.6);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -420,7 +424,7 @@ tr:hover td {
 }
 
 .overlay-card {
-    background: rgba(17, 24, 39, 0.9);
+    background: rgba(17, 24, 39, 0.8);
     border: 1px solid var(--border);
     border-radius: 1.5rem;
     padding: 2.5rem;
@@ -574,6 +578,58 @@ tr:hover td {
     border-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    pointer-events: none;
+    max-width: 320px;
+    width: 100%;
+}
+
+.toast {
+    background: rgba(17, 24, 39, 0.85);
+    border: 1px solid var(--border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    color: var(--text-main);
+    border-radius: 0.75rem;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+    transform: translateY(-20px);
+    opacity: 0;
+    animation: toastIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast.success {
+    border-left: 4px solid var(--success);
+}
+
+.toast.error {
+    border-left: 4px solid var(--danger);
+}
+
+.toast.info {
+    border-left: 4px solid var(--accent-primary);
+}
+
+.toast.fade-out {
+    transform: translateY(-10px);
+    opacity: 0;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -583,6 +639,13 @@ tr:hover td {
 @keyframes pulse-soft {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
+}
+
+@keyframes toastIn {
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .pulse-loading {
