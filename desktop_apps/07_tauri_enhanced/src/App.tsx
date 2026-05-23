@@ -11,6 +11,7 @@ import UsageCard from './components/UsageCard';
 import RealtimeCard from './components/RealtimeCard';
 import InfoCard from './components/InfoCard';
 import DevicesTable from './components/DevicesTable';
+import SmsModal from './components/SmsModal';
 
 // Check if running inside Tauri
 const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
@@ -65,6 +66,7 @@ function mockCall(command: string, _args: Record<string, any>): any {
       msisdn: '+905555555555',
       sms_unread_num: '2',
       wifi_access_sta_num: '5',
+      net_select: 'Network_Auto',
     };
   }
   if (command === 'fetch_stations') {
@@ -121,6 +123,7 @@ const COMMANDS = [
   'lan_netmask',
   'dhcpEnabled',
   'guest_dhcpEnabled',
+  'net_select',
 ];
 
 interface Toast {
@@ -162,6 +165,11 @@ export default function App() {
 
   // Toast notification state
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Advanced control states
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [isSendingSms, setIsSendingSms] = useState(false);
+  const [isAddingStaticIp, setIsAddingStaticIp] = useState(false);
 
   const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     const id = Date.now();
@@ -274,6 +282,129 @@ export default function App() {
       showToast('An error occurred during logout.', 'error');
     } finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  // Helper: Convert string to UCS-2 Hex for SMS
+  const toUcs2Hex = (str: string): string => {
+    let hex = '';
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i);
+      hex += code.toString(16).toUpperCase().padStart(4, '0');
+    }
+    return hex;
+  };
+
+  // Helper: Format SMS date
+  const getSmsDate = (): string => {
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    const dd = now.getDate().toString().padStart(2, '0');
+    const hh = now.getHours().toString().padStart(2, '0');
+    const min = now.getMinutes().toString().padStart(2, '0');
+    const ss = now.getSeconds().toString().padStart(2, '0');
+
+    const offsetMinutes = -now.getTimezoneOffset();
+    const offsetQuarters = Math.round(offsetMinutes / 15);
+    const sign = offsetQuarters >= 0 ? '+' : '-';
+    const zz = Math.abs(offsetQuarters).toString().padStart(2, '0');
+
+    return `${yy};${mm};${dd};${hh};${min};${ss};${sign}${zz}`;
+  };
+
+  const handleReboot = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to reboot the router? This will temporarily disconnect your internet connection.'
+    );
+    if (!confirmed) return;
+
+    showToast('Rebooting router...', 'info');
+    try {
+      await fnCall('reboot');
+      showToast('Reboot command sent. Router is restarting...', 'success');
+      // Clear state & show connection bootstrap loader
+      setIsConnected(false);
+      setRouterData(null);
+      setStations([]);
+      setStaticIps([]);
+      setRsrpHistory([]);
+      setSinrHistory([]);
+      setDlHistory([]);
+      setUlHistory([]);
+      setLastUpdate('');
+      setBootstrapHasError(false);
+      setIsBootstrapOpen(true);
+
+      // Try reconnecting after a brief period
+      setTimeout(refresh, 15000);
+    } catch (e) {
+      showToast(`Reboot failed: ${e}`, 'error');
+    }
+  };
+
+  const handleConnectNetwork = async () => {
+    showToast('Connecting WAN...', 'info');
+    try {
+      await fnCall('connect_network');
+      showToast('WAN Connection command sent.', 'success');
+      setTimeout(refresh, 2000);
+    } catch (e) {
+      showToast(`Connection failed: ${e}`, 'error');
+    }
+  };
+
+  const handleDisconnectNetwork = async () => {
+    showToast('Disconnecting WAN...', 'info');
+    try {
+      await fnCall('disconnect_network');
+      showToast('WAN Disconnection command sent.', 'success');
+      setTimeout(refresh, 2000);
+    } catch (e) {
+      showToast(`Disconnection failed: ${e}`, 'error');
+    }
+  };
+
+  const handleSetBearerPreference = async (pref: string) => {
+    const prefLabel = pref === 'Network_Auto' ? 'Auto' : pref === 'Only_LTE' ? '4G Only' : '5G Only';
+    showToast(`Locking bearer preference to ${prefLabel}...`, 'info');
+    try {
+      await fnCall('set_bearer_preference', { preference: pref });
+      showToast('Bearer preference updated successfully.', 'success');
+      setTimeout(refresh, 2000);
+    } catch (e) {
+      showToast(`Failed to update bearer preference: ${e}`, 'error');
+    }
+  };
+
+  const handleSaveStaticIp = async (hostname: string, ip: string, mac: string) => {
+    setIsAddingStaticIp(true);
+    showToast(`Reserving IP ${ip} for ${mac}...`, 'info');
+    try {
+      await fnCall('add_static_ip', { hostname, ipAddr: ip, macAddr: mac });
+      showToast('Static IP reserved successfully.', 'success');
+      setTimeout(refresh, 1000);
+    } catch (e) {
+      showToast(`Failed to reserve IP: ${e}`, 'error');
+    } finally {
+      setIsAddingStaticIp(false);
+    }
+  };
+
+  const handleSendSms = async (number: string, message: string) => {
+    setIsSendingSms(true);
+    showToast(`Sending SMS to ${number}...`, 'info');
+    try {
+      const hexMsg = toUcs2Hex(message);
+      const dateStr = getSmsDate();
+      await fnCall('send_sms', { number, messageHex: hexMsg, date: dateStr });
+      showToast('SMS sent successfully!', 'success');
+      setIsSmsModalOpen(false);
+      setTimeout(refresh, 2000);
+    } catch (e) {
+      showToast(`Failed to send SMS: ${e}`, 'error');
+    } finally {
+      setIsSendingSms(false);
     }
   };
 
@@ -410,6 +541,10 @@ export default function App() {
           isRefreshing={isRefreshing}
           isLoggingIn={isLoggingIn}
           isLoggingOut={isLoggingOut}
+          pppStatus={routerData?.ppp_status || ''}
+          onReboot={handleReboot}
+          onConnectNetwork={handleConnectNetwork}
+          onDisconnectNetwork={handleDisconnectNetwork}
         />
 
         <div className="dashboard-grid">
@@ -421,6 +556,8 @@ export default function App() {
             earfcn={earfcn}
             rsrpHistory={rsrpHistory}
             sinrHistory={sinrHistory}
+            bearerPreference={routerData?.net_select}
+            onSetBearerPreference={handleSetBearerPreference}
           />
 
           {/* Monthly Usage Card */}
@@ -455,12 +592,27 @@ export default function App() {
             msisdn={routerData?.msisdn || ''}
             smsUnread={routerData?.sms_unread_num || '0'}
             wifiClients={routerData?.wifi_access_sta_num || ''}
+            onOpenSmsComposer={() => setIsSmsModalOpen(true)}
           />
 
           {/* Client devices active/static list tables */}
-          <DevicesTable staticIps={staticIps} stations={stations} />
+          <DevicesTable
+            staticIps={staticIps}
+            stations={stations}
+            onAddStaticIp={handleSaveStaticIp}
+            isAddingStaticIp={isAddingStaticIp}
+            onShowToast={showToast}
+          />
         </div>
       </div>
+
+      {/* SMS Composer Modal */}
+      <SmsModal
+        isOpen={isSmsModalOpen}
+        onCancel={() => setIsSmsModalOpen(false)}
+        onSend={handleSendSms}
+        isSending={isSendingSms}
+      />
     </>
   );
 }

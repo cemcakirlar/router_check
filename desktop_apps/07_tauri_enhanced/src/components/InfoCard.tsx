@@ -11,6 +11,7 @@ interface InfoCardProps {
   msisdn: string;
   smsUnread: string;
   wifiClients: string;
+  onOpenSmsComposer?: () => void;
 }
 
 export default function InfoCard({
@@ -26,7 +27,26 @@ export default function InfoCard({
   msisdn,
   smsUnread,
   wifiClients,
+  onOpenSmsComposer,
 }: InfoCardProps) {
+  const formatPppStatus = (status: string) => {
+    if (!status) return '--';
+    if (status.includes('connected') && !status.includes('disconnected')) {
+      return 'Connected';
+    }
+    if (status.includes('disconnected')) {
+      return 'Disconnected';
+    }
+    if (status.includes('connecting')) {
+      return 'Connecting...';
+    }
+    if (status.includes('disconnecting')) {
+      return 'Disconnecting...';
+    }
+    const clean = status.replace(/_/g, ' ');
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  };
+
   return (
     <>
       {/* Network & LAN Config */}
@@ -39,7 +59,7 @@ export default function InfoCard({
           </div>
           <div className="info-row">
             <span className="info-label">PPP Status</span>
-            <span className="info-value">{pppStatus || '--'}</span>
+            <span className="info-value">{formatPppStatus(pppStatus)}</span>
           </div>
           <div className="info-row">
             <span className="info-label">LAN IP</span>
@@ -89,11 +109,20 @@ export default function InfoCard({
       <div className="card">
         <div className="card-title">📊 System Stats</div>
         <div className="info-grid">
-          <div className="info-row">
+          <div className="info-row" style={{ alignItems: 'center' }}>
             <span className="info-label">SMS Unread</span>
-            <span className="info-value" style={{ color: 'var(--accent-primary)' }}>
-              {smsUnread || '0'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span className="info-value" style={{ color: 'var(--accent-primary)' }}>
+                {smsUnread || '0'}
+              </span>
+              <button
+                onClick={onOpenSmsComposer}
+                className="refresh-btn"
+                style={{ padding: '0.2rem 0.5rem', fontSize: '0.65rem', display: 'inline-flex' }}
+              >
+                💬 Compose
+              </button>
+            </div>
           </div>
           <div className="info-row">
             <span className="info-label">WiFi Clients</span>

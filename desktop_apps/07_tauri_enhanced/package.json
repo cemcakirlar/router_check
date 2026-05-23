@@ -8,7 +8,8 @@
     "build": "tauri build",
     "vite-dev": "vite",
     "vite-build": "vite build",
-    "clean": "cargo clean --manifest-path src-tauri/Cargo.toml && rm -rf src-tauri/target"
+    "clean": "cargo clean --manifest-path src-tauri/Cargo.toml && rm -rf src-tauri/target",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.0",

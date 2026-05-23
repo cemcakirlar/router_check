@@ -12,6 +12,10 @@ interface HeaderProps {
   isRefreshing: boolean;
   isLoggingIn: boolean;
   isLoggingOut: boolean;
+  pppStatus?: string;
+  onReboot: () => void;
+  onConnectNetwork: () => void;
+  onDisconnectNetwork: () => void;
 }
 
 export default function Header({
@@ -26,12 +30,19 @@ export default function Header({
   isRefreshing,
   isLoggingIn,
   isLoggingOut,
+  pppStatus = '',
+  onReboot,
+  onConnectNetwork,
+  onDisconnectNetwork,
 }: HeaderProps) {
+  const isWanConnected = pppStatus.includes('connected') && !pppStatus.includes('disconnected');
+  const isWanTransitioning = pppStatus.includes('connecting') || pppStatus.includes('disconnecting');
+
   return (
-    <header data-tauri-drag-region>
+    <header>
       <div
         data-tauri-drag-region
-        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', pointerEvents: 'none' }}
+        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', pointerEvents: 'auto', cursor: 'default' }}
       >
         <img
           data-tauri-drag-region
@@ -42,15 +53,16 @@ export default function Header({
             height: '38px',
             objectFit: 'contain',
             filter: 'drop-shadow(0 0 8px var(--accent-primary-glow))',
+            pointerEvents: 'none',
           }}
         />
-        <div data-tauri-drag-region>
-          <h1 data-tauri-drag-region style={{ pointerEvents: 'none' }}>
+        <div data-tauri-drag-region style={{ pointerEvents: 'none' }}>
+          <h1 data-tauri-drag-region>
             ROUTER CHECK
           </h1>
           <div
             data-tauri-drag-region
-            style={{ display: 'flex', gap: '1rem', alignItems: 'center', pointerEvents: 'none' }}
+            style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}
           >
             <p data-tauri-drag-region style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
               Live Diagnostic Dashboard
@@ -70,11 +82,65 @@ export default function Header({
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+
+      {/* Draggable spacer in the middle */}
+      <div
+        data-tauri-drag-region
+        style={{ flex: 1, alignSelf: 'stretch', height: '100%', minWidth: '20px', cursor: 'default' }}
+      />
+
+      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
         <div id="connectionStatus" className="status-badge">
           <div className={`status-dot ${isConnected ? 'online' : ''}`} />
           <span>{isConnected ? 'Connected' : 'Offline'}</span>
         </div>
+
+        {isConnected && (
+          <>
+            {/* WAN Connection Control */}
+            {isWanConnected ? (
+              <button
+                onClick={onDisconnectNetwork}
+                className="refresh-btn"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                }}
+                disabled={isWanTransitioning}
+              >
+                🛑 Disconnect WAN
+              </button>
+            ) : (
+              <button
+                onClick={onConnectNetwork}
+                className="refresh-btn"
+                style={{
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: '#10b981',
+                }}
+                disabled={isWanTransitioning}
+              >
+                ⚡ Connect WAN
+              </button>
+            )}
+
+            {/* Reboot Control */}
+            <button
+              onClick={onReboot}
+              className="refresh-btn"
+              style={{
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                color: '#f59e0b',
+              }}
+            >
+              🔌 Reboot
+            </button>
+          </>
+        )}
+
         <div className="auto-toggle">
           <input
             type="checkbox"

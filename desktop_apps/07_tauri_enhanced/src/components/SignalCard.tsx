@@ -7,6 +7,8 @@ interface SignalCardProps {
   earfcn: string;
   rsrpHistory: number[];
   sinrHistory: number[];
+  bearerPreference?: string;
+  onSetBearerPreference?: (preference: string) => void;
 }
 
 function Grade({
@@ -48,6 +50,8 @@ export default function SignalCard({
   earfcn,
   rsrpHistory,
   sinrHistory,
+  bearerPreference = 'Network_Auto',
+  onSetBearerPreference,
 }: SignalCardProps) {
   // Calculations for fill percentage
   const rsrpPct = rsrp !== null ? Math.min(Math.max(((rsrp + 120) / 60) * 100, 0), 100) : 0;
@@ -171,6 +175,31 @@ export default function SignalCard({
           <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>
             {earfcn || '--'}
           </span>
+        </div>
+      </div>
+      <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.04)', paddingTop: '0.8rem' }}>
+        <div className="sub-value" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+          <span>Technology Lock:</span>
+          <select
+            value={bearerPreference}
+            onChange={(e) => onSetBearerPreference?.(e.target.value)}
+            style={{
+              background: 'rgba(0, 0, 0, 0.3)',
+              border: '1px solid var(--border)',
+              borderRadius: '0.35rem',
+              color: 'var(--text-main)',
+              fontSize: '0.75rem',
+              padding: '0.2rem 0.5rem',
+              fontFamily: 'var(--font-sans)',
+              outline: 'none',
+              cursor: 'pointer',
+              marginLeft: 'auto',
+            }}
+          >
+            <option value="Network_Auto">Auto Mode</option>
+            <option value="Only_LTE">4G Only</option>
+            <option value="Only_5G">5G Only</option>
+          </select>
         </div>
       </div>
     </div>
