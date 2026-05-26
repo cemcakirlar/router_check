@@ -163,7 +163,23 @@ export default function App() {
     sinr?: string;
   }>({});
 
-  const addLog = (field: string, oldValue: string, newValue: string, rsrpVal: string, sinrVal: string) => {
+  const logSaveTimeoutRef = useRef<any>(null);
+
+  // Debounced log persistence to localStorage to prevent high SSD write wear
+  const saveLogsToStorage = (updatedLogs: ChangeLogEntry[]) => {
+    if (logSaveTimeoutRef.current) {
+      clearTimeout(logSaveTimeoutRef.current);
+    }
+    logSaveTimeoutRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem("router_telemetry_logs", JSON.stringify(updatedLogs));
+      } catch (e) {
+        console.error("Failed to save logs to localStorage:", e);
+      }
+    }, 2000);
+  };
+
+  const addLog = (field: string, oldValue: string, newValue: string, rsrpVal: string, sinrVal: string, cellIdVal: string, networkTypeVal: string) => {
     const newLog: ChangeLogEntry = {
       id: `${Date.now()}-${Math.random()}`,
       timestamp: new Date().toLocaleString(),
@@ -172,13 +188,37 @@ export default function App() {
       newValue,
       rsrp: rsrpVal,
       sinr: sinrVal,
+      cellId: cellIdVal,
+      networkType: networkTypeVal,
     };
     setLogs((prev) => {
       const updated = [newLog, ...prev].slice(0, 500);
-      localStorage.setItem("router_telemetry_logs", JSON.stringify(updated));
+
+      // Save immediately for critical events, debounce for telemetry fluctuations
+      if (field === "Cell ID" || field === "Network Type") {
+        if (logSaveTimeoutRef.current) {
+          clearTimeout(logSaveTimeoutRef.current);
+        }
+        try {
+          localStorage.setItem("router_telemetry_logs", JSON.stringify(updated));
+        } catch (e) {
+          console.error("Failed to save logs to localStorage:", e);
+        }
+      } else {
+        saveLogsToStorage(updated);
+      }
       return updated;
     });
   };
+
+  // Cleanup log save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (logSaveTimeoutRef.current) {
+        clearTimeout(logSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const showToast = (message: string, type: "info" | "success" | "error" = "info") => {
     const id = Date.now();
@@ -225,26 +265,39 @@ export default function App() {
       const sinrStr = data.sinr || "";
 
       const prev = prevFieldsRef.current;
-      const checkChange = (prevVal: string | undefined, newVal: string, label: string) => {
-        if (newVal) {
-          if (prevVal !== undefined && prevVal !== newVal) {
-            addLog(label, prevVal, newVal, rsrpStr, sinrStr);
-          } else if (prevVal === undefined) {
-            addLog(label, "", newVal, rsrpStr, sinrStr);
-          }
+      const checkChange = (prevVal: string | undefined, newVal: string, label: string, threshold?: number): string | undefined => {
+        if (!newVal) return prevVal;
+
+        if (prevVal === undefined) {
+          addLog(label, "", newVal, rsrpStr, sinrStr, cellIdVal, networkTypeVal);
+          return newVal;
         }
+
+        if (prevVal !== newVal) {
+          if (threshold !== undefined) {
+            const pNum = parseFloat(prevVal) || 0;
+            const nNum = parseFloat(newVal) || 0;
+            if (Math.abs(nNum - pNum) < threshold) {
+              return prevVal;
+            }
+          }
+          addLog(label, prevVal, newVal, rsrpStr, sinrStr, cellIdVal, networkTypeVal);
+          return newVal;
+        }
+
+        return prevVal;
       };
 
-      checkChange(prev.cellId, cellIdVal, "Cell ID");
-      checkChange(prev.networkType, networkTypeVal, "Network Type");
-      checkChange(prev.rsrp, rsrpStr, "RSRP");
-      checkChange(prev.sinr, sinrStr, "SINR");
+      const nextCellId = checkChange(prev.cellId, cellIdVal, "Cell ID");
+      const nextNetworkType = checkChange(prev.networkType, networkTypeVal, "Network Type");
+      const nextRsrp = checkChange(prev.rsrp, rsrpStr, "RSRP", 3);
+      const nextSinr = checkChange(prev.sinr, sinrStr, "SINR", 2);
 
       prevFieldsRef.current = {
-        cellId: cellIdVal,
-        networkType: networkTypeVal,
-        rsrp: rsrpStr,
-        sinr: sinrStr,
+        cellId: nextCellId,
+        networkType: nextNetworkType,
+        rsrp: nextRsrp,
+        sinr: nextSinr,
       };
 
       // Calculate Sparkline point values
@@ -268,8 +321,9 @@ export default function App() {
         const rsrpVal = data.lte_rsrp || "N/A";
         const sinrVal = data.sinr || "N/A";
         const cellIdVal = data.cell_id || "N/A";
+        const netType = data.network_type || "N/A";
         invoke("update_tray_title", {
-          title: `RSRP: ${rsrpVal}dBm | SINR: ${sinrVal}dB | CID: ${cellIdVal}`,
+          title: `${netType} | RSRP: ${rsrpVal}dBm | SINR: ${sinrVal}dB | CID: ${cellIdVal}`,
         }).catch(() => {});
       }
     } catch (e) {
@@ -337,13 +391,7 @@ export default function App() {
     }
   };
 
-  const handleSaveSettings = async (
-    ip: string,
-    pass: string,
-    interval: number,
-    refreshOnStartup: boolean,
-    windowOnStartup: string
-  ) => {
+  const handleSaveSettings = async (ip: string, pass: string, interval: number, refreshOnStartup: boolean, windowOnStartup: string) => {
     try {
       const config = {
         router_ip: ip,
@@ -406,23 +454,25 @@ export default function App() {
 
   // Poll recursive effect loop
   useEffect(() => {
+    if (!autoRefresh) return;
+
+    let active = true;
     let timeoutId: any = null;
 
     const poll = async () => {
-      if (autoRefresh && isConnected) {
-        await refresh();
-        timeoutId = setTimeout(poll, autoRefreshInterval);
-      }
+      if (!active) return;
+      await refresh();
+      if (!active) return;
+      timeoutId = setTimeout(poll, autoRefreshInterval);
     };
 
-    if (autoRefresh && isConnected) {
-      timeoutId = setTimeout(poll, autoRefreshInterval);
-    }
+    timeoutId = setTimeout(poll, autoRefreshInterval);
 
     return () => {
+      active = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [autoRefresh, isConnected, autoRefreshInterval]);
+  }, [autoRefresh, autoRefreshInterval]);
 
   // Dynamic Window Title Updater
   useEffect(() => {
@@ -432,7 +482,8 @@ export default function App() {
         if (isConnected && routerData) {
           const rsrpVal = routerData.lte_rsrp || "N/A";
           const sinrVal = routerData.sinr || "N/A";
-          appWindow.setTitle(`Router Check (Enhanced) - RSRP: ${rsrpVal} dBm | SINR: ${sinrVal} dB`);
+          const netType = routerData.network_type || "N/A";
+          appWindow.setTitle(`Router Check (Enhanced) - ${netType} - RSRP: ${rsrpVal} dBm | SINR: ${sinrVal} dB`);
         } else {
           appWindow.setTitle("Router Check (Enhanced) - Disconnected");
         }
@@ -478,8 +529,6 @@ export default function App() {
         .catch((e) => console.error("Failed to update menu item text:", e));
     }
   }, [autoRefresh]);
-
-
 
   // Derived Values
   const rsrp = routerData && routerData.lte_rsrp ? parseInt(routerData.lte_rsrp) || 0 : null;
@@ -561,6 +610,15 @@ export default function App() {
           <RealtimeCard dlSpeed={dlSpeed} ulSpeed={ulSpeed} totalSessionBytes={totalSessionBytes} dlHistory={dlHistory} ulHistory={ulHistory} />
           {/* Monthly Usage Card */}
           <UsageCard monthlyRx={monthlyRx} monthlyTx={monthlyTx} monthlyTime={monthlyTime} provider={provider} networkType={networkType} />
+          {/* Router change logs */}
+          <LogsCard
+            logs={logs}
+            onClear={() => {
+              setLogs([]);
+              localStorage.removeItem("router_telemetry_logs");
+            }}
+          />
+
           {/* Network configurations, firmware info, stats */}
           <InfoCard
             wanIp={routerData?.wan_ipaddr || ""}
@@ -576,15 +634,8 @@ export default function App() {
             smsUnread={routerData?.sms_unread_num || "0"}
             wifiClients={routerData?.wifi_access_sta_num || ""}
           />
-
           {/* Client devices active/static list tables */}
           <DevicesTable staticIps={staticIps} stations={stations} />
-
-          {/* Router change logs */}
-          <LogsCard logs={logs} onClear={() => {
-            setLogs([]);
-            localStorage.removeItem("router_telemetry_logs");
-          }} />
         </div>
       </div>
     </>

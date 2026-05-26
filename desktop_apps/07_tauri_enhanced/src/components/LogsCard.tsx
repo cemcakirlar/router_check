@@ -8,6 +8,8 @@ export interface ChangeLogEntry {
   newValue: string;
   rsrp: string;
   sinr: string;
+  cellId: string;
+  networkType: string;
 }
 
 interface LogsCardProps {
@@ -29,7 +31,7 @@ export default function LogsCard({ logs, onClear }: LogsCardProps) {
 
   const handleExportCSV = () => {
     if (logs.length === 0) return;
-    const headers = ['Timestamp', 'Field', 'Old Value', 'New Value', 'RSRP (dBm)', 'SINR (dB)'];
+    const headers = ['Timestamp', 'Field', 'Old Value', 'New Value', 'RSRP (dBm)', 'SINR (dB)', 'Cell ID', 'Network Type'];
     const rows = logs.map((log) => [
       log.timestamp,
       log.field,
@@ -37,6 +39,8 @@ export default function LogsCard({ logs, onClear }: LogsCardProps) {
       log.newValue,
       log.rsrp,
       log.sinr,
+      log.cellId || '',
+      log.networkType || '',
     ]);
 
     const csvContent =
@@ -123,8 +127,10 @@ export default function LogsCard({ logs, onClear }: LogsCardProps) {
               <th style={{ width: '180px' }}>Timestamp</th>
               <th style={{ width: '120px' }}>Parameter</th>
               <th>Change Details</th>
-              <th style={{ width: '110px' }}>RSRP</th>
-              <th style={{ width: '100px' }}>SINR</th>
+              <th style={{ width: '100px' }}>RSRP</th>
+              <th style={{ width: '90px' }}>SINR</th>
+              <th style={{ width: '100px' }}>Cell ID</th>
+              <th style={{ width: '110px' }}>Network Type</th>
             </tr>
           </thead>
           <tbody>
@@ -182,6 +188,12 @@ export default function LogsCard({ logs, onClear }: LogsCardProps) {
                   </td>
                   <td style={{ color: parseFloat(log.sinr) >= 10 ? 'var(--success)' : 'var(--warning)' }}>
                     {log.sinr ? `${log.sinr} dB` : '--'}
+                  </td>
+                  <td style={{ color: 'var(--text-main)' }}>
+                    {log.cellId || '--'}
+                  </td>
+                  <td style={{ color: 'var(--text-main)' }}>
+                    {log.networkType || '--'}
                   </td>
                 </tr>
               ))
