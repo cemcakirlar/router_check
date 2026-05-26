@@ -115,6 +115,9 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isSettingBearer, setIsSettingBearer] = useState(false);
 
   // Router configuration settings
   const [routerIp, setRouterIp] = useState("192.168.0.1");
@@ -164,6 +167,7 @@ export default function App() {
   }>({});
 
   const logSaveTimeoutRef = useRef<any>(null);
+  const isRefreshingRef = useRef(false);
 
   // Debounced log persistence to localStorage to prevent high SSD write wear
   const saveLogsToStorage = (updatedLogs: ChangeLogEntry[]) => {
@@ -229,7 +233,8 @@ export default function App() {
   };
 
   const refresh = async () => {
-    if (isRefreshing) return;
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsRefreshing(true);
 
     try {
@@ -238,8 +243,8 @@ export default function App() {
       // Check if router requires login
       if (!data || data.result === "not_login" || !data.network_provider) {
         console.log("🔑 Router returned not_login. Attempting login...");
-        const loginResult = await fnCall<{ result: string }>("login");
-        if (loginResult && (loginResult.result === "0" || loginResult.result === "ok")) {
+        const loginResult = await fnCall<{ result: string; success?: boolean }>("login");
+        if (loginResult && (loginResult.success || loginResult.result === "0" || loginResult.result === "ok")) {
           // Retry fetch
           data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") });
         } else {
@@ -344,6 +349,7 @@ export default function App() {
         invoke("update_tray_title", { title: "Offline" }).catch(() => {});
       }
     } finally {
+      isRefreshingRef.current = false;
       setIsRefreshing(false);
     }
   };
@@ -351,8 +357,8 @@ export default function App() {
   const handleLogin = async () => {
     setIsLoggingIn(true);
     try {
-      const result = await fnCall<{ result: string }>("login");
-      const success = result && (result.result === "0" || result.result === "ok");
+      const result = await fnCall<{ result: string; success?: boolean }>("login");
+      const success = result && (result.success || result.result === "0" || result.result === "ok");
       if (success) {
         showToast("Logged in successfully!", "success");
         setTimeout(refresh, 500);
@@ -388,6 +394,98 @@ export default function App() {
       showToast("An error occurred during logout.", "error");
     } finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true);
+    try {
+      const result = await fnCall<{ result: string; success?: boolean }>("disconnect_network");
+      const success = result && (result.success || result.result === "0" || result.result === "ok" || result.result === "success");
+      if (success) {
+        showToast("Disconnection request sent!", "success");
+        let attempts = 0;
+        const pollDisconnection = async () => {
+          if (attempts >= 5) return;
+          attempts++;
+          try {
+            const data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") });
+            if (data) {
+              setRouterData(data);
+              const ppp = data.ppp_status || "";
+              if (ppp.includes("disconnected") || ppp === "") {
+                refresh();
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Polling ppp status failed:", e);
+          }
+          setTimeout(pollDisconnection, 1000);
+        };
+        setTimeout(pollDisconnection, 500);
+      } else {
+        showToast("Disconnection command failed.", "error");
+      }
+    } catch (e) {
+      showToast(`Error disconnecting: ${e}`, "error");
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    try {
+      const result = await fnCall<{ result: string; success?: boolean }>("connect_network");
+      const success = result && (result.success || result.result === "0" || result.result === "ok" || result.result === "success");
+      if (success) {
+        showToast("Connection request sent!", "success");
+        let attempts = 0;
+        const pollConnection = async () => {
+          if (attempts >= 10) return;
+          attempts++;
+          try {
+            const data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") });
+            if (data) {
+              setRouterData(data);
+              const ppp = data.ppp_status || "";
+              if (ppp.includes("connected") && !ppp.includes("disconnected")) {
+                refresh();
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Polling ppp status failed:", e);
+          }
+          setTimeout(pollConnection, 1500);
+        };
+        setTimeout(pollConnection, 1000);
+      } else {
+        showToast("Connection command failed.", "error");
+      }
+    } catch (e) {
+      showToast(`Error connecting: ${e}`, "error");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleSetBearerPreference = async (preference: string) => {
+    setIsSettingBearer(true);
+    try {
+      const result = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference });
+      const success = result && (result.success || result.result === "0" || result.result === "ok" || result.result === "success");
+      if (success) {
+        showToast(`Bearer preference set to ${preference}!`, "success");
+        refresh();
+      } else {
+        showToast("Failed to set bearer preference.", "error");
+      }
+    } catch (e) {
+      showToast(`Error setting bearer preference: ${e}`, "error");
+    } finally {
+      setIsSettingBearer(false);
     }
   };
 
@@ -600,6 +698,14 @@ export default function App() {
           isRefreshing={isRefreshing}
           isLoggingIn={isLoggingIn}
           isLoggingOut={isLoggingOut}
+          pppStatus={routerData?.ppp_status || ""}
+          onDisconnect={handleDisconnect}
+          isDisconnecting={isDisconnecting}
+          onConnect={handleConnect}
+          isConnecting={isConnecting}
+          netSelect={routerData?.net_select || ""}
+          onSetBearerPreference={handleSetBearerPreference}
+          isSettingBearer={isSettingBearer}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">

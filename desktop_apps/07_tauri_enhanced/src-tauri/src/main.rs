@@ -84,6 +84,13 @@ pub async fn make_request(
         format!("JSON decode error (body was: {}): {}", body, e)
     })?;
 
+    if method == "POST" {
+        let mut map = serde_json::Map::new();
+        map.insert("success".to_string(), serde_json::Value::Bool(true));
+        map.insert("_orig".to_string(), val);
+        return Ok(serde_json::Value::Object(map));
+    }
+
     Ok(val)
 }
 
@@ -263,7 +270,10 @@ fn main() {
             base::save_config,
             base::update_tray_title,
             base::update_menu_item_text,
-            base::get_pending_actions
+            base::get_pending_actions,
+            base::disconnect_network,
+            base::connect_network,
+            base::set_bearer_preference
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -153,3 +153,95 @@ pub fn get_pending_actions(state: State<'_, AppState>) -> Result<Vec<String>, St
     guard.clear();
     Ok(actions)
 }
+
+async fn fetch_ad_token(state: &State<'_, AppState>) -> Result<String, String> {
+    let now = get_epoch_ms();
+    let get_path = format!(
+        "/goform_get_cmd_process?isTest=false&multi_data=1&cmd=wa_inner_version,cr_version,RD&_={}",
+        now
+    );
+    
+    let auth_info = make_request(state, &get_path, None, "GET").await?;
+    
+    let wa_inner = auth_info.get("wa_inner_version")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing wa_inner_version from router response".to_string())?;
+        
+    let cr_ver = auth_info.get("cr_version")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing cr_version from router response".to_string())?;
+        
+    let rd = auth_info.get("RD")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing RD from router response".to_string())?;
+
+    // AD = md5(md5(wa_inner_version + cr_version) + RD)
+    let first_concat = format!("{}{}", wa_inner, cr_ver);
+    let first_md5 = format!("{:x}", md5::compute(first_concat.as_bytes()));
+    let second_concat = format!("{}{}", first_md5, rd);
+    let ad = format!("{:x}", md5::compute(second_concat.as_bytes()));
+    
+    Ok(ad)
+}
+
+#[tauri::command]
+pub async fn disconnect_network(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    println!("🔌 Fetching security tokens for network disconnection...");
+    let ad = fetch_ad_token(&state).await?;
+
+    let mut payload = HashMap::new();
+    payload.insert("isTest".to_string(), "false".to_string());
+    payload.insert("notCallback".to_string(), "true".to_string());
+    payload.insert("goformId".to_string(), "DISCONNECT_NETWORK".to_string());
+    payload.insert("AD".to_string(), ad.clone());
+
+    println!("🔌 Sending DISCONNECT_NETWORK command with AD={}...", ad);
+    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    println!("🔌 Disconnection response: {:?}", result);
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn connect_network(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    println!("🔌 Fetching security tokens for network connection...");
+    let ad = fetch_ad_token(&state).await?;
+
+    let mut payload = HashMap::new();
+    payload.insert("isTest".to_string(), "false".to_string());
+    payload.insert("notCallback".to_string(), "true".to_string());
+    payload.insert("goformId".to_string(), "CONNECT_NETWORK".to_string());
+    payload.insert("AD".to_string(), ad.clone());
+
+    println!("🔌 Sending CONNECT_NETWORK command with AD={}...", ad);
+    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    println!("🔌 Connection response: {:?}", result);
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn set_bearer_preference(state: State<'_, AppState>, preference: String) -> Result<serde_json::Value, String> {
+    if preference != "Only_LTE" && preference != "Only_WCDMA" && preference != "NETWORK_auto" {
+        return Err(format!("Invalid bearer preference: {}", preference));
+    }
+
+    println!("🔌 Fetching security tokens for setting bearer preference...");
+    let ad = fetch_ad_token(&state).await?;
+
+    let mut payload = HashMap::new();
+    payload.insert("isTest".to_string(), "false".to_string());
+    payload.insert("goformId".to_string(), "SET_BEARER_PREFERENCE".to_string());
+    payload.insert("BearerPreference".to_string(), preference.clone());
+    payload.insert("AD".to_string(), ad.clone());
+
+    println!("🔌 Sending SET_BEARER_PREFERENCE command with BearerPreference={} and AD={}...", preference, ad);
+    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    println!("🔌 Bearer preference response: {:?}", result);
+
+    Ok(result)
+}
+
+
+
+
