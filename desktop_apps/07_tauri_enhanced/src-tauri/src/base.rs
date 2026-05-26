@@ -25,7 +25,7 @@ pub async fn login(state: State<'_, AppState>) -> Result<serde_json::Value, Stri
     let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
     println!("🔑 Login response: {:?}", result);
     
-    Ok(serde_json::json!({ "result": "0", "router_response": result }))
+    Ok(result)
 }
 
 /// Logs out the active session from the router's web portal
@@ -40,7 +40,7 @@ pub async fn logout(state: State<'_, AppState>) -> Result<serde_json::Value, Str
     let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
     println!("🚪 Logout response: {:?}", result);
     
-    Ok(serde_json::json!({ "result": "0", "router_response": result }))
+    Ok(result)
 }
 
 /// Fetches multiple diagnostic telemetry parameters from the router (e.g., RSRP, SINR, band info)
@@ -112,4 +112,44 @@ pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Resul
     
     println!("⚙️ Config saved successfully: {:?}", config);
     Ok(())
+}
+
+#[tauri::command]
+pub fn update_tray_title(app: tauri::AppHandle, title: String) {
+    if let Some(tray) = app.tray_by_id("main") {
+        let _ = tray.set_title(Some(title));
+    }
+}
+
+#[tauri::command]
+pub fn update_menu_item_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
+    println!("⚙️ update_menu_item_text called with: {}", text);
+    match state.toggle_refresh_item.read() {
+        Ok(guard) => {
+            if let Some(item) = &*guard {
+                if let Err(e) = item.set_text(text.clone()) {
+                    println!("❌ Failed to set menu item text: {:?}", e);
+                    Err(format!("Failed to set text: {:?}", e))
+                } else {
+                    println!("✅ Menu item text set to: {}", text);
+                    Ok(())
+                }
+            } else {
+                println!("❌ Menu item is None");
+                Err("Menu item is None".to_string())
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to read lock: {:?}", e);
+            Err(format!("Lock error: {:?}", e))
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_pending_actions(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let mut guard = state.pending_actions.write().map_err(|e| format!("Poisoned: {}", e))?;
+    let actions = guard.clone();
+    guard.clear();
+    Ok(actions)
 }

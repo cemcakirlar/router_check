@@ -1,6 +1,9 @@
 export interface AppConfig {
   router_ip: string;
   router_password: string;
+  auto_refresh_interval: number;
+  auto_refresh_on_startup: boolean;
+  main_window_on_startup: string;
 }
 
 export interface Station {

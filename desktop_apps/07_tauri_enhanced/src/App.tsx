@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import "./style.css";
@@ -13,6 +13,7 @@ import UsageCard from "./components/UsageCard";
 import RealtimeCard from "./components/RealtimeCard";
 import InfoCard from "./components/InfoCard";
 import DevicesTable from "./components/DevicesTable";
+import LogsCard, { ChangeLogEntry } from "./components/LogsCard";
 
 // Check if running inside Tauri
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
@@ -118,6 +119,9 @@ export default function App() {
   // Router configuration settings
   const [routerIp, setRouterIp] = useState("192.168.0.1");
   const [routerPassword, setRouterPassword] = useState("");
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(2000);
+  const [autoRefreshOnStartup, setAutoRefreshOnStartup] = useState(true);
+  const [mainWindowOnStartup, setMainWindowOnStartup] = useState("visible");
 
   // Overlay states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -141,6 +145,40 @@ export default function App() {
 
   // Toast notification state
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Telemetry Change Logs
+  const [logs, setLogs] = useState<ChangeLogEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem("router_telemetry_logs");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const prevFieldsRef = useRef<{
+    cellId?: string;
+    networkType?: string;
+    rsrp?: string;
+    sinr?: string;
+  }>({});
+
+  const addLog = (field: string, oldValue: string, newValue: string, rsrpVal: string, sinrVal: string) => {
+    const newLog: ChangeLogEntry = {
+      id: `${Date.now()}-${Math.random()}`,
+      timestamp: new Date().toLocaleString(),
+      field,
+      oldValue,
+      newValue,
+      rsrp: rsrpVal,
+      sinr: sinrVal,
+    };
+    setLogs((prev) => {
+      const updated = [newLog, ...prev].slice(0, 500);
+      localStorage.setItem("router_telemetry_logs", JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const showToast = (message: string, type: "info" | "success" | "error" = "info") => {
     const id = Date.now();
@@ -180,6 +218,35 @@ export default function App() {
       setStations(stationData?.station_list || []);
       setStaticIps(staticData?.current_static_addr_list || []);
 
+      // Detect telemetry changes
+      const cellIdVal = data.cell_id || "";
+      const networkTypeVal = data.network_type || "";
+      const rsrpStr = data.lte_rsrp || "";
+      const sinrStr = data.sinr || "";
+
+      const prev = prevFieldsRef.current;
+      const checkChange = (prevVal: string | undefined, newVal: string, label: string) => {
+        if (newVal) {
+          if (prevVal !== undefined && prevVal !== newVal) {
+            addLog(label, prevVal, newVal, rsrpStr, sinrStr);
+          } else if (prevVal === undefined) {
+            addLog(label, "", newVal, rsrpStr, sinrStr);
+          }
+        }
+      };
+
+      checkChange(prev.cellId, cellIdVal, "Cell ID");
+      checkChange(prev.networkType, networkTypeVal, "Network Type");
+      checkChange(prev.rsrp, rsrpStr, "RSRP");
+      checkChange(prev.sinr, sinrStr, "SINR");
+
+      prevFieldsRef.current = {
+        cellId: cellIdVal,
+        networkType: networkTypeVal,
+        rsrp: rsrpStr,
+        sinr: sinrStr,
+      };
+
       // Calculate Sparkline point values
       const rsrpVal = parseInt(data.lte_rsrp || "0") || 0;
       const sinrVal = parseFloat(data.sinr || "0") || 0;
@@ -196,6 +263,15 @@ export default function App() {
       setIsConnected(true);
       setBootstrapHasError(false);
       setIsBootstrapOpen(false);
+
+      if (isTauri) {
+        const rsrpVal = data.lte_rsrp || "N/A";
+        const sinrVal = data.sinr || "N/A";
+        const cellIdVal = data.cell_id || "N/A";
+        invoke("update_tray_title", {
+          title: `RSRP: ${rsrpVal}dBm | SINR: ${sinrVal}dB | CID: ${cellIdVal}`,
+        }).catch(() => {});
+      }
     } catch (e) {
       console.error("Refresh failed:", e);
       setRouterData(null);
@@ -209,6 +285,10 @@ export default function App() {
       setIsConnected(false);
       setBootstrapHasError(true);
       setIsBootstrapOpen(true);
+
+      if (isTauri) {
+        invoke("update_tray_title", { title: "Offline" }).catch(() => {});
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -246,6 +326,10 @@ export default function App() {
       setUlHistory([]);
       setLastUpdate("");
       setIsConnected(false);
+
+      if (isTauri) {
+        invoke("update_tray_title", { title: "Offline" }).catch(() => {});
+      }
     } catch {
       showToast("An error occurred during logout.", "error");
     } finally {
@@ -253,11 +337,28 @@ export default function App() {
     }
   };
 
-  const handleSaveSettings = async (ip: string, pass: string) => {
+  const handleSaveSettings = async (
+    ip: string,
+    pass: string,
+    interval: number,
+    refreshOnStartup: boolean,
+    windowOnStartup: string
+  ) => {
     try {
-      await fnCall("save_config", { config: { router_ip: ip, router_password: pass } });
+      const config = {
+        router_ip: ip,
+        router_password: pass,
+        auto_refresh_interval: interval,
+        auto_refresh_on_startup: refreshOnStartup,
+        main_window_on_startup: windowOnStartup,
+      };
+      await fnCall("save_config", { config });
       setRouterIp(ip);
       setRouterPassword(pass);
+      setAutoRefreshInterval(interval);
+      setAutoRefreshOnStartup(refreshOnStartup);
+      setMainWindowOnStartup(windowOnStartup);
+      setAutoRefresh(refreshOnStartup);
       setIsSettingsOpen(false);
       showToast("Configuration saved!", "success");
 
@@ -288,6 +389,10 @@ export default function App() {
         if (config) {
           setRouterIp(config.router_ip);
           setRouterPassword(config.router_password);
+          setAutoRefreshInterval(config.auto_refresh_interval);
+          setAutoRefreshOnStartup(config.auto_refresh_on_startup);
+          setMainWindowOnStartup(config.main_window_on_startup);
+          setAutoRefresh(config.auto_refresh_on_startup);
         }
       } catch (e) {
         console.error("Failed to load configuration:", e);
@@ -306,18 +411,18 @@ export default function App() {
     const poll = async () => {
       if (autoRefresh && isConnected) {
         await refresh();
-        timeoutId = setTimeout(poll, 2000);
+        timeoutId = setTimeout(poll, autoRefreshInterval);
       }
     };
 
     if (autoRefresh && isConnected) {
-      timeoutId = setTimeout(poll, 2000);
+      timeoutId = setTimeout(poll, autoRefreshInterval);
     }
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [autoRefresh, isConnected]);
+  }, [autoRefresh, isConnected, autoRefreshInterval]);
 
   // Dynamic Window Title Updater
   useEffect(() => {
@@ -336,6 +441,45 @@ export default function App() {
       }
     }
   }, [routerData, isConnected]);
+
+  // Poll tray events periodically
+  useEffect(() => {
+    if (!isTauri) return;
+
+    const checkPendingActions = async () => {
+      try {
+        const actions = await invoke<string[]>("get_pending_actions");
+        if (actions && actions.length > 0) {
+          for (const action of actions) {
+            console.log("Processing tray action:", action);
+            if (action === "toggle_refresh") {
+              setAutoRefresh((prev) => !prev);
+            } else if (action === "force_refresh") {
+              refresh();
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch pending tray actions:", e);
+      }
+    };
+
+    const intervalId = setInterval(checkPendingActions, 500);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Update Menu Item Text when autoRefresh changes
+  useEffect(() => {
+    if (isTauri) {
+      const text = autoRefresh ? "Pause Auto-Poll" : "Resume Auto-Poll";
+      console.log("Invoking update_menu_item_text with:", text);
+      invoke("update_menu_item_text", { text })
+        .then(() => console.log("Menu item text successfully updated to:", text))
+        .catch((e) => console.error("Failed to update menu item text:", e));
+    }
+  }, [autoRefresh]);
+
+
 
   // Derived Values
   const rsrp = routerData && routerData.lte_rsrp ? parseInt(routerData.lte_rsrp) || 0 : null;
@@ -386,6 +530,9 @@ export default function App() {
         isOpen={isSettingsOpen}
         initialIp={routerIp}
         initialPassword={routerPassword}
+        initialAutoRefreshInterval={autoRefreshInterval}
+        initialAutoRefreshOnStartup={autoRefreshOnStartup}
+        initialMainWindowOnStartup={mainWindowOnStartup}
         onCancel={() => setIsSettingsOpen(false)}
         onSave={handleSaveSettings}
       />
@@ -432,6 +579,12 @@ export default function App() {
 
           {/* Client devices active/static list tables */}
           <DevicesTable staticIps={staticIps} stations={stations} />
+
+          {/* Router change logs */}
+          <LogsCard logs={logs} onClear={() => {
+            setLogs([]);
+            localStorage.removeItem("router_telemetry_logs");
+          }} />
         </div>
       </div>
     </>

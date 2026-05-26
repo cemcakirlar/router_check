@@ -19,7 +19,8 @@
         "height": 800,
         "resizable": true,
         "transparent": true,
-        "titleBarStyle": "Visible"
+        "titleBarStyle": "Visible",
+        "visible": false
       }
     ],
     "security": {

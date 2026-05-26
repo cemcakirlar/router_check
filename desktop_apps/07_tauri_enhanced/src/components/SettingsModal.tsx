@@ -4,19 +4,34 @@ interface SettingsModalProps {
   isOpen: boolean;
   initialIp: string;
   initialPassword: string;
+  initialAutoRefreshInterval: number;
+  initialAutoRefreshOnStartup: boolean;
+  initialMainWindowOnStartup: string;
   onCancel: () => void;
-  onSave: (ip: string, password: string) => Promise<void>;
+  onSave: (
+    ip: string,
+    password: string,
+    autoRefreshInterval: number,
+    autoRefreshOnStartup: boolean,
+    mainWindowOnStartup: string
+  ) => Promise<void>;
 }
 
 export default function SettingsModal({
   isOpen,
   initialIp,
   initialPassword,
+  initialAutoRefreshInterval,
+  initialAutoRefreshOnStartup,
+  initialMainWindowOnStartup,
   onCancel,
   onSave,
 }: SettingsModalProps) {
   const [ip, setIp] = useState(initialIp);
   const [password, setPassword] = useState(initialPassword);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(initialAutoRefreshInterval);
+  const [autoRefreshOnStartup, setAutoRefreshOnStartup] = useState(initialAutoRefreshOnStartup);
+  const [mainWindowOnStartup, setMainWindowOnStartup] = useState(initialMainWindowOnStartup);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync state with props when modal opens
@@ -24,13 +39,23 @@ export default function SettingsModal({
     if (isOpen) {
       setIp(initialIp);
       setPassword(initialPassword);
+      setAutoRefreshInterval(initialAutoRefreshInterval);
+      setAutoRefreshOnStartup(initialAutoRefreshOnStartup);
+      setMainWindowOnStartup(initialMainWindowOnStartup);
     }
-  }, [isOpen, initialIp, initialPassword]);
+  }, [
+    isOpen,
+    initialIp,
+    initialPassword,
+    initialAutoRefreshInterval,
+    initialAutoRefreshOnStartup,
+    initialMainWindowOnStartup,
+  ]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(ip, password);
+      await onSave(ip, password, autoRefreshInterval, autoRefreshOnStartup, mainWindowOnStartup);
     } finally {
       setIsSaving(false);
     }
@@ -42,10 +67,10 @@ export default function SettingsModal({
       data-tauri-drag-region
       className={`fullscreen-overlay ${isOpen ? 'active' : ''}`}
     >
-      <div className="overlay-card">
+      <div className="overlay-card" style={{ maxWidth: '480px' }}>
         <h2 className="overlay-title">Router Settings</h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.5rem', textAlign: 'left' }}>
-          Provide the IP address and admin password for your ZTE router.
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.5rem', textAlign: 'left', width: '100%' }}>
+          Provide the IP address, admin credentials, and application behavior settings.
         </p>
         <div className="settings-form">
           <div className="form-group">
@@ -70,6 +95,47 @@ export default function SettingsModal({
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          
+          <div className="form-group">
+            <label htmlFor="settingsInterval">Auto Refresh Polling Interval (ms)</label>
+            <input
+              type="number"
+              id="settingsInterval"
+              className="form-input"
+              min="500"
+              step="100"
+              value={autoRefreshInterval}
+              onChange={(e) => setAutoRefreshInterval(parseInt(e.target.value) || 2000)}
+            />
+          </div>
+
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.6rem', marginTop: '0.2rem' }}>
+            <input
+              type="checkbox"
+              id="settingsAutoRefreshOnStartup"
+              style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--accent-primary)' }}
+              checked={autoRefreshOnStartup}
+              onChange={(e) => setAutoRefreshOnStartup(e.target.checked)}
+            />
+            <label htmlFor="settingsAutoRefreshOnStartup" style={{ cursor: 'pointer', textTransform: 'none', marginBottom: 0 }}>
+              Auto Refresh on Startup
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="settingsMainWindowOnStartup">Main Window Initial Status</label>
+            <select
+              id="settingsMainWindowOnStartup"
+              className="form-input"
+              style={{ background: 'rgba(0, 0, 0, 0.4)', color: 'var(--text-main)', cursor: 'pointer' }}
+              value={mainWindowOnStartup}
+              onChange={(e) => setMainWindowOnStartup(e.target.value)}
+            >
+              <option value="visible">Visible</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </div>
+
           <div className="form-actions">
             <button
               id="settingsCancelBtn"

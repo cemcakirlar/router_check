@@ -10,6 +10,9 @@ mod base;
 pub struct AppConfig {
     pub router_ip: String,
     pub router_password: String,
+    pub auto_refresh_interval: u32,
+    pub auto_refresh_on_startup: bool,
+    pub main_window_on_startup: String,
 }
 
 impl Default for AppConfig {
@@ -17,6 +20,9 @@ impl Default for AppConfig {
         Self {
             router_ip: "192.168.0.1".to_string(),
             router_password: "".to_string(),
+            auto_refresh_interval: 2000,
+            auto_refresh_on_startup: true,
+            main_window_on_startup: "visible".to_string(),
         }
     }
 }
@@ -25,6 +31,8 @@ pub struct AppState {
     pub config_path: std::path::PathBuf,
     pub config: RwLock<AppConfig>,
     pub client: reqwest::Client,
+    pub toggle_refresh_item: RwLock<Option<tauri::menu::MenuItem<tauri::Wry>>>,
+    pub pending_actions: RwLock<Vec<String>>,
 }
 
 pub async fn make_request(
@@ -116,11 +124,123 @@ fn main() {
                 .build()
                 .map_err(|e| tauri::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
             
+            let initial_refresh_text = if config.auto_refresh_on_startup {
+                "Pause Auto-Poll"
+            } else {
+                "Resume Auto-Poll"
+            };
+            let initial_visibility_text = if config.main_window_on_startup == "hidden" {
+                "Show Window"
+            } else {
+                "Hide Window"
+            };
+
+            use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+            let toggle_visibility = MenuItemBuilder::with_id("toggle_visibility", initial_visibility_text).build(app)?;
+            let toggle_refresh = MenuItemBuilder::with_id("toggle_refresh", initial_refresh_text).build(app)?;
+            let force_refresh = MenuItemBuilder::with_id("force_refresh", "Refresh Now").build(app)?;
+            let separator = PredefinedMenuItem::separator(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Exit Router Check").build(app)?;
+            
             app.manage(AppState {
                 config_path,
-                config: RwLock::new(config),
+                config: RwLock::new(config.clone()),
                 client,
+                toggle_refresh_item: RwLock::new(Some(toggle_refresh.clone())),
+                pending_actions: RwLock::new(Vec::new()),
             });
+
+            // Set up native window event listeners to handle show, hide, and close request
+            if let Some(window) = app.get_webview_window("main") {
+                if config.main_window_on_startup != "hidden" {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                
+                let toggle_vis_clone = toggle_visibility.clone();
+                let window_clone = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_clone.hide();
+                        let _ = toggle_vis_clone.set_text("Show Window");
+                    }
+                });
+            }
+            
+            // Initialize TrayIcon
+            if let Some(icon) = app.default_window_icon() {
+                // use tauri::Emitter;
+                
+                let menu = MenuBuilder::new(app)
+                    .items(&[
+                        &toggle_visibility,
+                        &separator,
+                        &toggle_refresh,
+                        &force_refresh,
+                        &separator,
+                        &quit,
+                    ])
+                    .build()?;
+
+                let toggle_vis_clone_menu = toggle_visibility.clone();
+                let toggle_vis_clone_tray = toggle_visibility.clone();
+                let _tray = tauri::tray::TrayIconBuilder::with_id("main")
+                    .icon(icon.clone())
+                    .title("Offline")
+                    .menu(&menu)
+                    .on_menu_event(move |app, event| {
+                        match event.id().as_ref() {
+                            "quit" => {
+                                app.exit(0);
+                            }
+                            "toggle_visibility" => {
+                                if let Some(webview_window) = app.get_webview_window("main") {
+                                    if webview_window.is_visible().unwrap_or(false) {
+                                        let _ = webview_window.hide();
+                                        let _ = toggle_vis_clone_menu.set_text("Show Window");
+                                    } else {
+                                        let _ = webview_window.unminimize();
+                                        let _ = webview_window.show();
+                                        let _ = webview_window.set_focus();
+                                        let _ = toggle_vis_clone_menu.set_text("Hide Window");
+                                    }
+                                }
+                            }
+                            "toggle_refresh" => {
+                                println!("🖱️ Tray menu click: toggle_refresh (enqueued)");
+                                if let Ok(mut guard) = app.state::<AppState>().pending_actions.write() {
+                                    guard.push("toggle_refresh".to_string());
+                                }
+                            }
+                            "force_refresh" => {
+                                println!("🖱️ Tray menu click: force_refresh (enqueued)");
+                                if let Ok(mut guard) = app.state::<AppState>().pending_actions.write() {
+                                    guard.push("force_refresh".to_string());
+                                }
+                            }
+                            _ => (),
+                        }
+                    })
+                    .on_tray_icon_event(move |tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Left,
+                            button_state: tauri::tray::MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            if let Some(webview_window) = app.get_webview_window("main") {
+                                let _ = webview_window.unminimize();
+                                let _ = webview_window.show();
+                                let _ = webview_window.set_focus();
+                                let _ = toggle_vis_clone_tray.set_text("Hide Window");
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
             
             // Apply macOS window vibrancy
             #[cfg(target_os = "macos")]
@@ -140,7 +260,10 @@ fn main() {
             base::fetch_stations,
             base::fetch_static_ips,
             base::get_config,
-            base::save_config
+            base::save_config,
+            base::update_tray_title,
+            base::update_menu_item_text,
+            base::get_pending_actions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
