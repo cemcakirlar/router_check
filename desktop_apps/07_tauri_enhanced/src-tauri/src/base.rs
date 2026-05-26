@@ -1,13 +1,15 @@
 use std::collections::HashMap;
-use std::time::SystemTime;
 use tauri::State;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use crate::{AppState, AppConfig, make_request};
+use crate::{AppState, AppConfig, make_request, get_epoch_ms};
 
+/// Performs an authentication handshake with the router.
+/// Decodes the local router password configuration, encodes it to Base64,
+/// and sends a login POST payload to `/goform_set_cmd_process`.
 #[tauri::command]
 pub async fn login(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let password = {
-        let cfg = state.config.read().unwrap();
+        let cfg = state.config.read().map_err(|e| format!("Config lock poisoned: {}", e))?;
         cfg.router_password.clone()
     };
     
@@ -26,6 +28,8 @@ pub async fn login(state: State<'_, AppState>) -> Result<serde_json::Value, Stri
     Ok(serde_json::json!({ "result": "0", "router_response": result }))
 }
 
+/// Logs out the active session from the router's web portal
+/// by sending a logout request.
 #[tauri::command]
 pub async fn logout(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let mut payload = HashMap::new();
@@ -39,12 +43,11 @@ pub async fn logout(state: State<'_, AppState>) -> Result<serde_json::Value, Str
     Ok(serde_json::json!({ "result": "0", "router_response": result }))
 }
 
+/// Fetches multiple diagnostic telemetry parameters from the router (e.g., RSRP, SINR, band info)
+/// by passing a comma-separated list of telemetry parameter keys.
 #[tauri::command]
 pub async fn fetch_router_data(state: State<'_, AppState>, commands: String) -> Result<serde_json::Value, String> {
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+    let now = get_epoch_ms();
         
     let path = format!(
         "/goform_get_cmd_process?isTest=false&multi_data=1&cmd={}&_={}",
@@ -54,12 +57,11 @@ pub async fn fetch_router_data(state: State<'_, AppState>, commands: String) -> 
     make_request(&state, &path, None, "GET").await
 }
 
+/// Retrieves the list of currently connected wireless/wired client stations
+/// from the router's active DHCP leases table.
 #[tauri::command]
 pub async fn fetch_stations(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+    let now = get_epoch_ms();
         
     let path = format!(
         "/goform_get_cmd_process?isTest=false&cmd=station_list&_={}",
@@ -69,12 +71,11 @@ pub async fn fetch_stations(state: State<'_, AppState>) -> Result<serde_json::Va
     make_request(&state, &path, None, "GET").await
 }
 
+/// Fetches the list of static/reserved IP address allocations configured
+/// in the router's DHCP reservation table.
 #[tauri::command]
 pub async fn fetch_static_ips(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+    let now = get_epoch_ms();
         
     let path = format!(
         "/goform_get_cmd_process?isTest=false&cmd=current_static_addr_list&_={}",
@@ -84,17 +85,21 @@ pub async fn fetch_static_ips(state: State<'_, AppState>) -> Result<serde_json::
     make_request(&state, &path, None, "GET").await
 }
 
+/// Retrieves the current application configuration (Router IP & Password)
+/// stored in memory.
 #[tauri::command]
-pub fn get_config(state: State<'_, AppState>) -> AppConfig {
-    let cfg = state.config.read().unwrap();
-    cfg.clone()
+pub fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
+    let cfg = state.config.read().map_err(|e| format!("Config lock poisoned: {}", e))?;
+    Ok(cfg.clone())
 }
 
+/// Updates the application configuration both in active memory and
+/// permanently by overwriting the `config.json` configuration file.
 #[tauri::command]
 pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Result<(), String> {
     // Save to memory
     {
-        let mut cfg = state.config.write().unwrap();
+        let mut cfg = state.config.write().map_err(|e| format!("Config lock poisoned: {}", e))?;
         *cfg = config.clone();
     }
     

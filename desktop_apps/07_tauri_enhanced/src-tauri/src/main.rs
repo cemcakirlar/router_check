@@ -5,7 +5,6 @@ use std::sync::RwLock;
 use tauri::Manager;
 
 mod base;
-mod advanced;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct AppConfig {
@@ -17,7 +16,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             router_ip: "192.168.0.1".to_string(),
-            router_password: "FoldMund2204*".to_string(),
+            router_password: "".to_string(),
         }
     }
 }
@@ -35,7 +34,7 @@ pub async fn make_request(
     method: &str,
 ) -> Result<serde_json::Value, String> {
     let ip = {
-        let cfg = state.config.read().unwrap();
+        let cfg = state.config.read().map_err(|e| format!("Config lock poisoned: {}", e))?;
         cfg.router_ip.clone()
     };
 
@@ -80,6 +79,13 @@ pub async fn make_request(
     Ok(val)
 }
 
+pub fn get_epoch_ms() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -104,14 +110,16 @@ fn main() {
                 default_cfg
             };
             
+            let client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .cookie_store(true)
+                .build()
+                .map_err(|e| tauri::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+            
             app.manage(AppState {
                 config_path,
                 config: RwLock::new(config),
-                client: reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_secs(5))
-                    .cookie_store(true)
-                    .build()
-                    .unwrap(),
+                client,
             });
             
             // Apply macOS window vibrancy
@@ -120,7 +128,6 @@ fn main() {
                 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = apply_vibrancy(&window, NSVisualEffectMaterial::UnderWindowBackground, None, None);
-                    let _ = window.set_title("");
                 }
             }
             
@@ -133,14 +140,7 @@ fn main() {
             base::fetch_stations,
             base::fetch_static_ips,
             base::get_config,
-            base::save_config,
-            advanced::reboot,
-            advanced::set_connection_mode,
-            advanced::connect_network,
-            advanced::disconnect_network,
-            advanced::add_static_ip,
-            advanced::set_bearer_preference,
-            advanced::send_sms
+            base::save_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -32,7 +32,7 @@ export default function RealtimeCard({
   const ulStats = getSpeedStats(ulHistory);
 
   return (
-    <div className="card">
+    <div className="card md:col-span-4">
       <div className="card-title">⚡ Realtime Speeds</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
         {/* Download Rate */}

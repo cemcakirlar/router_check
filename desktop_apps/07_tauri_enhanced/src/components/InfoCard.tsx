@@ -11,7 +11,6 @@ interface InfoCardProps {
   msisdn: string;
   smsUnread: string;
   wifiClients: string;
-  onOpenSmsComposer?: () => void;
 }
 
 export default function InfoCard({
@@ -27,7 +26,6 @@ export default function InfoCard({
   msisdn,
   smsUnread,
   wifiClients,
-  onOpenSmsComposer,
 }: InfoCardProps) {
   const formatPppStatus = (status: string) => {
     if (!status) return '--';
@@ -50,7 +48,7 @@ export default function InfoCard({
   return (
     <>
       {/* Network & LAN Config */}
-      <div className="card">
+      <div className="card md:col-span-4">
         <div className="card-title">🌐 Network & LAN</div>
         <div className="info-grid">
           <div className="info-row">
@@ -83,7 +81,7 @@ export default function InfoCard({
       </div>
 
       {/* System & Network Info */}
-      <div className="card">
+      <div className="card md:col-span-4">
         <div className="card-title">🛠️ System Details</div>
         <div className="info-grid">
           <div className="info-row">
@@ -106,23 +104,14 @@ export default function InfoCard({
       </div>
 
       {/* System Stats */}
-      <div className="card">
+      <div className="card md:col-span-4">
         <div className="card-title">📊 System Stats</div>
         <div className="info-grid">
           <div className="info-row" style={{ alignItems: 'center' }}>
             <span className="info-label">SMS Unread</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span className="info-value" style={{ color: 'var(--accent-primary)' }}>
-                {smsUnread || '0'}
-              </span>
-              <button
-                onClick={onOpenSmsComposer}
-                className="refresh-btn"
-                style={{ padding: '0.2rem 0.5rem', fontSize: '0.65rem', display: 'inline-flex' }}
-              >
-                💬 Compose
-              </button>
-            </div>
+            <span className="info-value" style={{ color: 'var(--accent-primary)' }}>
+              {smsUnread || '0'}
+            </span>
           </div>
           <div className="info-row">
             <span className="info-label">WiFi Clients</span>

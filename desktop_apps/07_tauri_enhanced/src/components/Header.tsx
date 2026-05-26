@@ -1,4 +1,4 @@
-import logoUrl from '/icon.png';
+import logoUrl from "/icon.png";
 
 interface HeaderProps {
   isConnected: boolean;
@@ -12,10 +12,6 @@ interface HeaderProps {
   isRefreshing: boolean;
   isLoggingIn: boolean;
   isLoggingOut: boolean;
-  pppStatus?: string;
-  onReboot: () => void;
-  onConnectNetwork: () => void;
-  onDisconnectNetwork: () => void;
 }
 
 export default function Header({
@@ -30,50 +26,35 @@ export default function Header({
   isRefreshing,
   isLoggingIn,
   isLoggingOut,
-  pppStatus = '',
-  onReboot,
-  onConnectNetwork,
-  onDisconnectNetwork,
 }: HeaderProps) {
-  const isWanConnected = pppStatus.includes('connected') && !pppStatus.includes('disconnected');
-  const isWanTransitioning = pppStatus.includes('connecting') || pppStatus.includes('disconnecting');
-
   return (
     <header>
-      <div
-        data-tauri-drag-region
-        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', pointerEvents: 'auto', cursor: 'default' }}
-      >
+      <div data-tauri-drag-region style={{ display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "auto", cursor: "default" }}>
         <img
           data-tauri-drag-region
           src={logoUrl}
           alt="Logo"
           style={{
-            width: '38px',
-            height: '38px',
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 0 8px var(--accent-primary-glow))',
-            pointerEvents: 'none',
+            width: "38px",
+            height: "38px",
+            objectFit: "contain",
+            filter: "drop-shadow(0 0 8px var(--accent-primary-glow))",
+            pointerEvents: "none",
           }}
         />
-        <div data-tauri-drag-region style={{ pointerEvents: 'none' }}>
-          <h1 data-tauri-drag-region>
-            ROUTER CHECK
-          </h1>
-          <div
-            data-tauri-drag-region
-            style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}
-          >
-            <p data-tauri-drag-region style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+        <div data-tauri-drag-region style={{ pointerEvents: "none" }}>
+          <h1 data-tauri-drag-region>ROUTER CHECK</h1>
+          <div data-tauri-drag-region style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            <p data-tauri-drag-region style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
               Live Diagnostic Dashboard
             </p>
             <p
               data-tauri-drag-region
               id="lastUpdate"
               style={{
-                fontSize: '0.75rem',
-                color: 'var(--accent-primary)',
-                fontFamily: 'var(--font-mono)',
+                fontSize: "0.75rem",
+                color: "var(--accent-primary)",
+                fontFamily: "var(--font-mono)",
                 fontWeight: 700,
               }}
             >
@@ -84,105 +65,51 @@ export default function Header({
       </div>
 
       {/* Draggable spacer in the middle */}
-      <div
-        data-tauri-drag-region
-        style={{ flex: 1, alignSelf: 'stretch', height: '100%', minWidth: '20px', cursor: 'default' }}
-      />
+      <div data-tauri-drag-region style={{ flex: 1, alignSelf: "stretch", height: "100%", minWidth: "20px", cursor: "default" }} />
 
-      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+      <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", position: "relative", zIndex: 10 }}>
         <div id="connectionStatus" className="status-badge">
-          <div className={`status-dot ${isConnected ? 'online' : ''}`} />
-          <span>{isConnected ? 'Connected' : 'Offline'}</span>
+          <div className={`status-dot ${isConnected ? "online" : ""}`} />
+          <span>{isConnected ? "Connected" : "Offline"}</span>
         </div>
-
-        {isConnected && (
-          <>
-            {/* WAN Connection Control */}
-            {isWanConnected ? (
-              <button
-                onClick={onDisconnectNetwork}
-                className="refresh-btn"
-                style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#ef4444',
-                }}
-                disabled={isWanTransitioning}
-              >
-                🛑 Disconnect WAN
-              </button>
-            ) : (
-              <button
-                onClick={onConnectNetwork}
-                className="refresh-btn"
-                style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  color: '#10b981',
-                }}
-                disabled={isWanTransitioning}
-              >
-                ⚡ Connect WAN
-              </button>
-            )}
-
-            {/* Reboot Control */}
-            <button
-              onClick={onReboot}
-              className="refresh-btn"
-              style={{
-                background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                color: '#f59e0b',
-              }}
-            >
-              🔌 Reboot
-            </button>
-          </>
+        {!autoRefresh && (
+          <button id="refreshBtn" onClick={onRefresh} className="refresh-btn" disabled={isRefreshing} style={{ display: "flex" }}>
+            {isRefreshing ? "REFRESHING..." : "REFRESH"}
+          </button>
         )}
 
         <div className="auto-toggle">
           <input
             type="checkbox"
             id="autoRefresh"
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: "pointer" }}
             checked={autoRefresh}
             onChange={(e) => onToggleAutoRefresh(e.target.checked)}
           />
           <label
             htmlFor="autoRefresh"
             style={{
-              fontSize: '0.7rem',
+              fontSize: "0.7rem",
               fontWeight: 700,
-              cursor: 'pointer',
-              color: 'var(--text-dim)',
-              letterSpacing: '0.5px',
+              cursor: "pointer",
+              color: "var(--text-dim)",
+              letterSpacing: "0.5px",
             }}
           >
             AUTO
           </label>
         </div>
+
         <button id="settingsBtn" onClick={onOpenSettings} className="refresh-btn">
           ⚙️ Settings
         </button>
         {isConnected ? (
           <button id="logoutBtn" onClick={onLogout} className="refresh-btn" disabled={isLoggingOut}>
-            {isLoggingOut ? 'LOGGING OUT...' : 'LOGOUT'}
+            {isLoggingOut ? "LOGGING OUT..." : "LOGOUT"}
           </button>
         ) : (
           <button id="loginBtn" onClick={onLogin} className="refresh-btn" disabled={isLoggingIn}>
-            {isLoggingIn ? 'LOGGING IN...' : 'LOGIN'}
-          </button>
-        )}
-        {!autoRefresh && (
-          <button
-            id="refreshBtn"
-            onClick={onRefresh}
-            className="refresh-btn"
-            disabled={isRefreshing}
-            style={{ display: 'flex' }}
-          >
-            {isRefreshing ? 'REFRESHING...' : 'REFRESH'}
+            {isLoggingIn ? "LOGGING IN..." : "LOGIN"}
           </button>
         )}
       </div>

@@ -18,7 +18,7 @@ export default function UsageCard({
   const totalUsage = (monthlyRx || 0) + (monthlyTx || 0);
 
   return (
-    <div className="card">
+    <div className="card md:col-span-4">
       <div className="card-title">📊 Monthly Data</div>
       <div className="big-value">
         <FormatBytes bytes={totalUsage} />

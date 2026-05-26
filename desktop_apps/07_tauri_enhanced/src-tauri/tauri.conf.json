@@ -19,11 +19,11 @@
         "height": 800,
         "resizable": true,
         "transparent": true,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Visible"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' http://* ipc:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://*;"
     }
   },
   "bundle": {
