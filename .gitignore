@@ -166,3 +166,4 @@ desktop_apps/*/out/
 desktop_apps/*/release/
 
 .brainstorm
+.dependencygraph
