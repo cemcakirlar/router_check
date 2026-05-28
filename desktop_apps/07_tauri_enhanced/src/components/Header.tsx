@@ -21,6 +21,8 @@ interface HeaderProps {
   netSelect?: string;
   onSetBearerPreference: (preference: string) => Promise<void>;
   isSettingBearer: boolean;
+  onStartRecovery: () => void;
+  isRecovering: boolean;
 }
 
 export default function Header({
@@ -43,6 +45,8 @@ export default function Header({
   netSelect,
   onSetBearerPreference,
   isSettingBearer,
+  onStartRecovery,
+  isRecovering,
 }: HeaderProps) {
   const formatPppStatus = (status: string) => {
     if (!status) return "Unknown";
@@ -216,6 +220,25 @@ export default function Header({
               {isSettingBearer ? "SETTING..." : "SET BEARER"}
             </button>
           </div>
+        )}
+
+        {/* Cell Recovery Button */}
+        {isConnected && (
+          <button
+            id="cellRecoveryBtn"
+            onClick={onStartRecovery}
+            disabled={isRecovering}
+            className="refresh-btn"
+            style={{
+              background: "rgba(139, 92, 246, 0.12)",
+              borderColor: "rgba(139, 92, 246, 0.35)",
+              color: "#a78bfa",
+              boxShadow: "0 4px 10px rgba(139, 92, 246, 0.15)",
+              cursor: isRecovering ? "not-allowed" : "pointer",
+            }}
+          >
+            {isRecovering ? "⚡ RECOVERING..." : "⚡ RECOVER CELL"}
+          </button>
         )}
 
         {!autoRefresh && (

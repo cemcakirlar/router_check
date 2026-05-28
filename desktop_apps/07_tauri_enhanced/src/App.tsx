@@ -14,6 +14,7 @@ import RealtimeCard from "./components/RealtimeCard";
 import InfoCard from "./components/InfoCard";
 import DevicesTable from "./components/DevicesTable";
 import LogsCard, { ChangeLogEntry } from "./components/LogsCard";
+import RecoveryOverlay, { RecoveryStep } from "./components/RecoveryOverlay";
 
 // Check if running inside Tauri
 const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
@@ -118,6 +119,12 @@ export default function App() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSettingBearer, setIsSettingBearer] = useState(false);
+
+  // Cell Recovery State
+  const [recoveryStep, setRecoveryStep] = useState<RecoveryStep>("idle");
+  const [recoveryMessage, setRecoveryMessage] = useState("");
+  const [recoveryLogs, setRecoveryLogs] = useState<string[]>([]);
+  const abortRecoveryRef = useRef<boolean>(false);
 
   // Router configuration settings
   const [routerIp, setRouterIp] = useState("192.168.0.1");
@@ -489,6 +496,201 @@ export default function App() {
     }
   };
 
+  const handleCellRecovery = async () => {
+    if (recoveryStep !== "idle") return;
+
+    abortRecoveryRef.current = false;
+    setRecoveryLogs([]);
+    const wasAutoRefresh = autoRefresh;
+    if (autoRefresh) {
+      setAutoRefresh(false);
+    }
+
+    const log = (msg: string) => {
+      setRecoveryLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+      setRecoveryMessage(msg);
+    };
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const checkAborted = () => {
+      if (abortRecoveryRef.current) {
+        throw new Error("Aborted by user");
+      }
+    };
+
+    try {
+      // 1. Disconnect
+      setRecoveryStep("disconnecting");
+      log("Disconnecting network...");
+      const discResult = await fnCall<{ result: string; success?: boolean }>("disconnect_network");
+      const discSuccess = discResult && (discResult.success || discResult.result === "0" || discResult.result === "ok" || discResult.result === "success");
+      if (!discSuccess) {
+        throw new Error("Disconnect command failed");
+      }
+      checkAborted();
+      await sleep(1000);
+
+      // 2. Verify Disconnected
+      setRecoveryStep("verifying_disconnect");
+      log("Verifying disconnected status...");
+      let discVerified = false;
+      for (let i = 0; i < 20; i++) {
+        checkAborted();
+        const data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") }).catch(() => null);
+        if (data) {
+          const ppp = data.ppp_status || "";
+          log(`Verifying disconnect (attempt ${i + 1}/20) - status: ${ppp || "empty"}`);
+          if (ppp.includes("disconnected") || ppp === "") {
+            discVerified = true;
+            break;
+          }
+        }
+        await sleep(1000);
+      }
+      if (!discVerified) {
+        throw new Error("Failed to verify disconnection within timeout");
+      }
+      checkAborted();
+
+      // 3. Switch to 3G (Only_WCDMA)
+      setRecoveryStep("setting_3g");
+      log("Switching bearer preference to Only 3G/WCDMA...");
+      const set3gResult = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference: "Only_WCDMA" });
+      const set3gSuccess = set3gResult && (set3gResult.success || set3gResult.result === "0" || set3gResult.result === "ok" || set3gResult.result === "success");
+      if (!set3gSuccess) {
+        throw new Error("Failed to set preference to Only WCDMA");
+      }
+      checkAborted();
+      await sleep(2000);
+
+      // 4. Verify 3G Registration
+      setRecoveryStep("verifying_3g");
+      log("Waiting for router to register on 3G network...");
+      let registered3g = false;
+      for (let i = 0; i < 20; i++) {
+        checkAborted();
+        const data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") }).catch(() => null);
+        if (data) {
+          const net = (data.network_type || "").toLowerCase();
+          log(`Verifying 3G registration (attempt ${i + 1}/20) - network: ${data.network_type || "None"}`);
+          if (
+            net.includes("wcdma") ||
+            net.includes("umts") ||
+            net.includes("hsdpa") ||
+            net.includes("hsupa") ||
+            net.includes("hspa") ||
+            net.includes("3g")
+          ) {
+            registered3g = true;
+            break;
+          }
+        }
+        await sleep(1500);
+      }
+      if (!registered3g) {
+        throw new Error("Router failed to register on 3G network within timeout");
+      }
+      checkAborted();
+
+      // 5. Switch back to Auto
+      setRecoveryStep("setting_auto");
+      log("Restoring bearer preference to Auto...");
+      const setAutoResult = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference: "NETWORK_auto" });
+      const setAutoSuccess = setAutoResult && (setAutoResult.success || setAutoResult.result === "0" || setAutoResult.result === "ok" || setAutoResult.result === "success");
+      if (!setAutoSuccess) {
+        throw new Error("Failed to restore preference to Auto");
+      }
+      checkAborted();
+      await sleep(2000);
+
+      // 6. Verify LTE / LTE-A
+      setRecoveryStep("verifying_lte");
+      log("Waiting for router to register on 4G LTE/LTE-A network...");
+      let registeredLte = false;
+      for (let i = 0; i < 25; i++) {
+        checkAborted();
+        const data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") }).catch(() => null);
+        if (data) {
+          const net = (data.network_type || "").toLowerCase();
+          log(`Verifying 4G registration (attempt ${i + 1}/25) - network: ${data.network_type || "None"}`);
+          if (
+            net.includes("lte") ||
+            net.includes("4g") ||
+            net.includes("5g") ||
+            net.includes("hspa+") || // sometimes HSPA+ is considered higher speed but let's prioritize LTE/LTE-A/LTE+
+            net.includes("lte_a") ||
+            net.includes("lte-a") ||
+            net.includes("lte+")
+          ) {
+            registeredLte = true;
+            break;
+          }
+        }
+        await sleep(1500);
+      }
+      if (!registeredLte) {
+        throw new Error("Router failed to register on 4G/LTE network within timeout");
+      }
+      checkAborted();
+
+      // 7. Connect Network
+      setRecoveryStep("connecting");
+      log("Connecting network...");
+      const connResult = await fnCall<{ result: string; success?: boolean }>("connect_network");
+      const connSuccess = connResult && (connResult.success || connResult.result === "0" || connResult.result === "ok" || connResult.result === "success");
+      if (!connSuccess) {
+        throw new Error("Connect command failed");
+      }
+      checkAborted();
+      await sleep(1500);
+
+      // 8. Verify Connection
+      setRecoveryStep("verifying_connect");
+      log("Verifying network connection...");
+      let connVerified = false;
+      for (let i = 0; i < 20; i++) {
+        checkAborted();
+        const data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") }).catch(() => null);
+        if (data) {
+          const ppp = data.ppp_status || "";
+          log(`Verifying connect (attempt ${i + 1}/20) - status: ${ppp}`);
+          if (ppp.includes("connected") && !ppp.includes("disconnected")) {
+            connVerified = true;
+            break;
+          }
+        }
+        await sleep(1000);
+      }
+      if (!connVerified) {
+        throw new Error("Failed to verify connection within timeout");
+      }
+
+      setRecoveryStep("completed");
+      log("Cell recovery sequence completed successfully!");
+      showToast("Cell recovery completed successfully!", "success");
+    } catch (err: any) {
+      console.error("Cell recovery failed:", err);
+      setRecoveryStep("failed");
+      log(`Recovery failed: ${err.message || err}`);
+      showToast(`Cell recovery failed: ${err.message || err}`, "error");
+    } finally {
+      // Restore auto-refresh
+      if (wasAutoRefresh) {
+        setAutoRefresh(true);
+      }
+      // Trigger a final refresh to get latest statistics
+      refresh();
+    }
+  };
+
+  const handleAbortRecovery = () => {
+    abortRecoveryRef.current = true;
+    setRecoveryStep("idle");
+    showToast("Cell recovery sequence aborted", "info");
+    refresh();
+  };
+
   const handleSaveSettings = async (ip: string, pass: string, interval: number, refreshOnStartup: boolean, windowOnStartup: string) => {
     try {
       const config = {
@@ -684,6 +886,15 @@ export default function App() {
         onSave={handleSaveSettings}
       />
 
+      {/* Recovery Process Overlay */}
+      <RecoveryOverlay
+        isOpen={recoveryStep !== "idle"}
+        step={recoveryStep}
+        message={recoveryMessage}
+        onAbort={handleAbortRecovery}
+        logs={recoveryLogs}
+      />
+
       {/* Main Container */}
       <div className="w-[95%] max-w-[1600px] mx-auto animate-[fadeIn_0.8s_ease-out]">
         <Header
@@ -706,6 +917,8 @@ export default function App() {
           netSelect={routerData?.net_select || ""}
           onSetBearerPreference={handleSetBearerPreference}
           isSettingBearer={isSettingBearer}
+          onStartRecovery={handleCellRecovery}
+          isRecovering={recoveryStep !== "idle"}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
