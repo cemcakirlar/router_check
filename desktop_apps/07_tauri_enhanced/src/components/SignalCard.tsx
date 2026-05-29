@@ -7,6 +7,9 @@ interface SignalCardProps {
   earfcn: string;
   rsrpHistory: number[];
   sinrHistory: number[];
+  isConnected: boolean;
+  onStartRecovery: () => void;
+  isRecovering: boolean;
 }
 
 function Grade({
@@ -48,6 +51,9 @@ export default function SignalCard({
   earfcn,
   rsrpHistory,
   sinrHistory,
+  isConnected,
+  onStartRecovery,
+  isRecovering,
 }: SignalCardProps) {
   // Calculations for fill percentage
   const rsrpPct = rsrp !== null ? Math.min(Math.max(((rsrp + 120) / 60) * 100, 0), 100) : 0;
@@ -173,6 +179,29 @@ export default function SignalCard({
           </span>
         </div>
       </div>
+
+      {isConnected && (
+        <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.04)', paddingTop: '1rem' }}>
+          <button
+            id="cellRecoveryBtn"
+            onClick={onStartRecovery}
+            disabled={isRecovering}
+            className="refresh-btn"
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              background: 'rgba(139, 92, 246, 0.12)',
+              borderColor: 'rgba(139, 92, 246, 0.35)',
+              color: '#a78bfa',
+              boxShadow: '0 4px 10px rgba(139, 92, 246, 0.15)',
+              cursor: isRecovering ? 'not-allowed' : 'pointer',
+              padding: '0.6rem',
+            }}
+          >
+            {isRecovering ? '⚡ RECOVERING...' : '⚡ RECOVER CELL'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

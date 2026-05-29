@@ -524,7 +524,8 @@ export default function App() {
       setRecoveryStep("disconnecting");
       log("Disconnecting network...");
       const discResult = await fnCall<{ result: string; success?: boolean }>("disconnect_network");
-      const discSuccess = discResult && (discResult.success || discResult.result === "0" || discResult.result === "ok" || discResult.result === "success");
+      const discSuccess =
+        discResult && (discResult.success || discResult.result === "0" || discResult.result === "ok" || discResult.result === "success");
       if (!discSuccess) {
         throw new Error("Disconnect command failed");
       }
@@ -557,7 +558,8 @@ export default function App() {
       setRecoveryStep("setting_3g");
       log("Switching bearer preference to Only 3G/WCDMA...");
       const set3gResult = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference: "Only_WCDMA" });
-      const set3gSuccess = set3gResult && (set3gResult.success || set3gResult.result === "0" || set3gResult.result === "ok" || set3gResult.result === "success");
+      const set3gSuccess =
+        set3gResult && (set3gResult.success || set3gResult.result === "0" || set3gResult.result === "ok" || set3gResult.result === "success");
       if (!set3gSuccess) {
         throw new Error("Failed to set preference to Only WCDMA");
       }
@@ -597,7 +599,9 @@ export default function App() {
       setRecoveryStep("setting_auto");
       log("Restoring bearer preference to Auto...");
       const setAutoResult = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference: "NETWORK_auto" });
-      const setAutoSuccess = setAutoResult && (setAutoResult.success || setAutoResult.result === "0" || setAutoResult.result === "ok" || setAutoResult.result === "success");
+      const setAutoSuccess =
+        setAutoResult &&
+        (setAutoResult.success || setAutoResult.result === "0" || setAutoResult.result === "ok" || setAutoResult.result === "success");
       if (!setAutoSuccess) {
         throw new Error("Failed to restore preference to Auto");
       }
@@ -638,7 +642,8 @@ export default function App() {
       setRecoveryStep("connecting");
       log("Connecting network...");
       const connResult = await fnCall<{ result: string; success?: boolean }>("connect_network");
-      const connSuccess = connResult && (connResult.success || connResult.result === "0" || connResult.result === "ok" || connResult.result === "success");
+      const connSuccess =
+        connResult && (connResult.success || connResult.result === "0" || connResult.result === "ok" || connResult.result === "success");
       if (!connSuccess) {
         throw new Error("Connect command failed");
       }
@@ -909,35 +914,24 @@ export default function App() {
           isRefreshing={isRefreshing}
           isLoggingIn={isLoggingIn}
           isLoggingOut={isLoggingOut}
-          pppStatus={routerData?.ppp_status || ""}
-          onDisconnect={handleDisconnect}
-          isDisconnecting={isDisconnecting}
-          onConnect={handleConnect}
-          isConnecting={isConnecting}
-          netSelect={routerData?.net_select || ""}
-          onSetBearerPreference={handleSetBearerPreference}
-          isSettingBearer={isSettingBearer}
-          onStartRecovery={handleCellRecovery}
-          isRecovering={recoveryStep !== "idle"}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
           {/* Signal Card */}
-          <SignalCard rsrp={rsrp} sinr={sinr} cellId={cellId} earfcn={earfcn} rsrpHistory={rsrpHistory} sinrHistory={sinrHistory} />
+          <SignalCard
+            rsrp={rsrp}
+            sinr={sinr}
+            cellId={cellId}
+            earfcn={earfcn}
+            rsrpHistory={rsrpHistory}
+            sinrHistory={sinrHistory}
+            isConnected={isConnected}
+            onStartRecovery={handleCellRecovery}
+            isRecovering={recoveryStep !== "idle"}
+          />
 
           {/* Realtime Rate speeds */}
           <RealtimeCard dlSpeed={dlSpeed} ulSpeed={ulSpeed} totalSessionBytes={totalSessionBytes} dlHistory={dlHistory} ulHistory={ulHistory} />
-          {/* Monthly Usage Card */}
-          <UsageCard monthlyRx={monthlyRx} monthlyTx={monthlyTx} monthlyTime={monthlyTime} provider={provider} networkType={networkType} />
-          {/* Router change logs */}
-          <LogsCard
-            logs={logs}
-            onClear={() => {
-              setLogs([]);
-              localStorage.removeItem("router_telemetry_logs");
-            }}
-          />
-
           {/* Network configurations, firmware info, stats */}
           <InfoCard
             wanIp={routerData?.wan_ipaddr || ""}
@@ -952,7 +946,27 @@ export default function App() {
             msisdn={routerData?.msisdn || ""}
             smsUnread={routerData?.sms_unread_num || "0"}
             wifiClients={routerData?.wifi_access_sta_num || ""}
+            isConnected={isConnected}
+            onConnect={handleConnect}
+            isConnecting={isConnecting}
+            onDisconnect={handleDisconnect}
+            isDisconnecting={isDisconnecting}
+            netSelect={routerData?.net_select || ""}
+            onSetBearerPreference={handleSetBearerPreference}
+            isSettingBearer={isSettingBearer}
           />
+
+          {/* Monthly Usage Card */}
+          <UsageCard monthlyRx={monthlyRx} monthlyTx={monthlyTx} monthlyTime={monthlyTime} provider={provider} networkType={networkType} />
+          {/* Router change logs */}
+          <LogsCard
+            logs={logs}
+            onClear={() => {
+              setLogs([]);
+              localStorage.removeItem("router_telemetry_logs");
+            }}
+          />
+
           {/* Client devices active/static list tables */}
           <DevicesTable staticIps={staticIps} stations={stations} />
         </div>
