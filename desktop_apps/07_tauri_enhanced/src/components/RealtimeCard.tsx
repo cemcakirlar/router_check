@@ -1,21 +1,16 @@
 import Sparkline from './Sparkline';
 import { FormatBytes, FormatSpeed } from '../utils/format';
+import { useRouterState } from '../context/RouterStateContext';
 
-interface RealtimeCardProps {
-  dlSpeed: number | null;
-  ulSpeed: number | null;
-  totalSessionBytes: number | null;
-  dlHistory: number[];
-  ulHistory: number[];
-}
+export default function RealtimeCard() {
+  const {
+    dlSpeed,
+    ulSpeed,
+    totalSessionBytes,
+    dlHistory,
+    ulHistory,
+  } = useRouterState();
 
-export default function RealtimeCard({
-  dlSpeed,
-  ulSpeed,
-  totalSessionBytes,
-  dlHistory,
-  ulHistory,
-}: RealtimeCardProps) {
   const getSpeedStats = (history: number[]) => {
     if (history.length === 0) return { min: '--', max: '--', avg: '--' };
     const min = Math.min(...history);

@@ -1,3 +1,4 @@
+import { useRouterState } from '../context/RouterStateContext';
 
 export type RecoveryStep =
   | "idle"
@@ -12,14 +13,6 @@ export type RecoveryStep =
   | "completed"
   | "failed";
 
-interface RecoveryOverlayProps {
-  isOpen: boolean;
-  step: RecoveryStep;
-  message: string;
-  onAbort: () => void;
-  logs: string[];
-}
-
 const STEPS_CONFIG = [
   { id: "disconnecting", label: "Disconnect network connection" },
   { id: "verifying_disconnect", label: "Verify network status is disconnected" },
@@ -31,13 +24,16 @@ const STEPS_CONFIG = [
   { id: "verifying_connect", label: "Verify network status is connected" },
 ];
 
-export default function RecoveryOverlay({
-  isOpen,
-  step,
-  message,
-  onAbort,
-  logs,
-}: RecoveryOverlayProps) {
+export default function RecoveryOverlay() {
+  const {
+    recoveryStep: step,
+    recoveryMessage: message,
+    recoveryLogs: logs,
+    handleAbortRecovery: onAbort,
+  } = useRouterState();
+
+  const isOpen = step !== "idle";
+
   if (!isOpen) return null;
 
   // Calculate progress percentage

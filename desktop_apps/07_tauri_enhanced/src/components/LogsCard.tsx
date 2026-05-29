@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouterState } from '../context/RouterStateContext';
 
 export interface ChangeLogEntry {
   id: string;
@@ -12,13 +13,14 @@ export interface ChangeLogEntry {
   networkType: string;
 }
 
-interface LogsCardProps {
-  logs: ChangeLogEntry[];
-  onClear: () => void;
-}
-
-export default function LogsCard({ logs, onClear }: LogsCardProps) {
+export default function LogsCard() {
+  const { logs, setLogs } = useRouterState();
   const [filterField, setFilterField] = useState<string>('all');
+
+  const onClear = () => {
+    setLogs([]);
+    localStorage.removeItem("router_telemetry_logs");
+  };
 
   const filteredLogs = logs.filter((log) => {
     if (filterField === 'all') return true;
@@ -199,7 +201,7 @@ export default function LogsCard({ logs, onClear }: LogsCardProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '2rem' }}>
+                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '2rem' }}>
                   No telemetry changes recorded yet.
                 </td>
               </tr>

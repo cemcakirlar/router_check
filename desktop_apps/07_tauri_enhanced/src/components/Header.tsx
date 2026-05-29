@@ -1,32 +1,21 @@
 import logoUrl from "/icon.png";
+import { useRouterState } from "../context/RouterStateContext";
 
-interface HeaderProps {
-  isConnected: boolean;
-  autoRefresh: boolean;
-  onToggleAutoRefresh: (checked: boolean) => void;
-  lastUpdate: string;
-  onOpenSettings: () => void;
-  onLogin: () => void;
-  onLogout: () => void;
-  isRefreshing: boolean;
-  isLoggingIn: boolean;
-  isLoggingOut: boolean;
-  onRefresh: () => void;
-}
+export default function Header() {
+  const {
+    isConnected,
+    autoRefresh,
+    setAutoRefresh,
+    lastUpdate,
+    setIsSettingsOpen,
+    handleLogin,
+    handleLogout,
+    isRefreshing,
+    isLoggingIn,
+    isLoggingOut,
+    refresh,
+  } = useRouterState();
 
-export default function Header({
-  isConnected,
-  autoRefresh,
-  onToggleAutoRefresh,
-  lastUpdate,
-  onOpenSettings,
-  onLogin,
-  onLogout,
-  onRefresh,
-  isRefreshing,
-  isLoggingIn,
-  isLoggingOut,
-}: HeaderProps) {
   return (
     <header>
       <div data-tauri-drag-region style={{ display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "auto", cursor: "default" }}>
@@ -82,7 +71,7 @@ export default function Header({
 
           {/* Toggle Auto Refresh (Play/Pause symbol) */}
           <button
-            onClick={() => onToggleAutoRefresh(!autoRefresh)}
+            onClick={() => setAutoRefresh(!autoRefresh)}
             className="refresh-btn"
             title={autoRefresh ? "Pause Auto-poll" : "Resume Auto-poll"}
             style={{
@@ -99,7 +88,7 @@ export default function Header({
           {!autoRefresh && (
             <button
               id="refreshBtn"
-              onClick={onRefresh}
+              onClick={refresh}
               className="refresh-btn"
               disabled={isRefreshing}
               title="Force manual refresh"
@@ -120,7 +109,7 @@ export default function Header({
         <div style={{ display: "flex", gap: "0.4rem" }}>
           <button
             id="settingsBtn"
-            onClick={onOpenSettings}
+            onClick={() => setIsSettingsOpen(true)}
             className="refresh-btn"
             title="Open system configuration"
             style={{ padding: "0.45rem 0.75rem" }}
@@ -131,7 +120,7 @@ export default function Header({
           {isConnected ? (
             <button
               id="logoutBtn"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="refresh-btn"
               disabled={isLoggingOut}
               style={{ padding: "0.45rem 0.75rem" }}
@@ -141,7 +130,7 @@ export default function Header({
           ) : (
             <button
               id="loginBtn"
-              onClick={onLogin}
+              onClick={handleLogin}
               className="refresh-btn"
               disabled={isLoggingIn}
               style={{

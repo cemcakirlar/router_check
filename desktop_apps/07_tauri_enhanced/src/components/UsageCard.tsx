@@ -1,20 +1,15 @@
 import { FormatBytes, formatTime } from '../utils/format';
+import { useRouterState } from '../context/RouterStateContext';
 
-interface UsageCardProps {
-  monthlyRx: number | null;
-  monthlyTx: number | null;
-  monthlyTime: number | null;
-  provider: string;
-  networkType: string;
-}
+export default function UsageCard() {
+  const {
+    monthlyRx,
+    monthlyTx,
+    monthlyTime,
+    provider,
+    networkType,
+  } = useRouterState();
 
-export default function UsageCard({
-  monthlyRx,
-  monthlyTx,
-  monthlyTime,
-  provider,
-  networkType,
-}: UsageCardProps) {
   const totalUsage = (monthlyRx || 0) + (monthlyTx || 0);
 
   return (

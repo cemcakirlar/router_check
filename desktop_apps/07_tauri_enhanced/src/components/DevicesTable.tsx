@@ -1,24 +1,8 @@
-export interface StaticIp {
-  hostname?: string;
-  ip: string;
-  mac: string;
-}
+import { useRouterState } from '../context/RouterStateContext';
 
-export interface Station {
-  hostname?: string;
-  ip_addr: string;
-  mac_addr: string;
-}
+export default function DevicesTable() {
+  const { staticIps, stations } = useRouterState();
 
-interface DevicesTableProps {
-  staticIps: StaticIp[];
-  stations: Station[];
-}
-
-export default function DevicesTable({
-  staticIps,
-  stations,
-}: DevicesTableProps) {
   return (
     <>
       {/* Static IP Reservations */}

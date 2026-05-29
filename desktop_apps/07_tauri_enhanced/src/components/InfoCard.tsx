@@ -1,51 +1,32 @@
 import { useState, useEffect } from 'react';
+import { useRouterState } from '../context/RouterStateContext';
 
-interface InfoCardProps {
-  wanIp: string;
-  pppStatus: string;
-  lanIp: string;
-  lanNetmask: string;
-  dhcpEnabled: string;
-  macAddress: string;
-  imei: string;
-  firmware: string;
-  hardware: string;
-  msisdn: string;
-  smsUnread: string;
-  wifiClients: string;
+export default function InfoCard() {
+  const {
+    routerData,
+    isConnected,
+    handleConnect,
+    isConnecting,
+    handleDisconnect,
+    isDisconnecting,
+    handleSetBearerPreference,
+    isSettingBearer,
+  } = useRouterState();
 
-  isConnected: boolean;
-  onConnect: () => void;
-  isConnecting: boolean;
-  onDisconnect: () => void;
-  isDisconnecting: boolean;
-  netSelect?: string;
-  onSetBearerPreference: (preference: string) => Promise<void>;
-  isSettingBearer: boolean;
-}
+  const netSelect = routerData?.net_select || "";
+  const wanIp = routerData?.wan_ipaddr || "";
+  const pppStatus = routerData?.ppp_status || "";
+  const lanIp = routerData?.lan_ipaddr || routerData?.ip_addr_web || "";
+  const lanNetmask = routerData?.lan_netmask || "";
+  const dhcpEnabled = routerData?.dhcpEnabled || "";
+  const macAddress = routerData?.mac_address || "";
+  const imei = routerData?.imei || "";
+  const firmware = routerData?.cr_version || routerData?.wa_version || "";
+  const hardware = routerData?.hardware_version || "";
+  const msisdn = routerData?.msisdn || "";
+  const smsUnread = routerData?.sms_unread_num || "0";
+  const wifiClients = routerData?.wifi_access_sta_num || "";
 
-export default function InfoCard({
-  wanIp,
-  pppStatus,
-  lanIp,
-  lanNetmask,
-  dhcpEnabled,
-  macAddress,
-  imei,
-  firmware,
-  hardware,
-  msisdn,
-  smsUnread,
-  wifiClients,
-  isConnected,
-  onConnect,
-  isConnecting,
-  onDisconnect,
-  isDisconnecting,
-  netSelect,
-  onSetBearerPreference,
-  isSettingBearer,
-}: InfoCardProps) {
   const formatPppStatus = (status: string) => {
     if (!status) return '--';
     if (status.includes('connected') && !status.includes('disconnected')) {
@@ -126,7 +107,7 @@ export default function InfoCard({
             {isPppConnected ? (
               <button
                 id="disconnectBtn"
-                onClick={onDisconnect}
+                onClick={handleDisconnect}
                 className="refresh-btn"
                 disabled={isDisconnecting}
                 style={{
@@ -144,7 +125,7 @@ export default function InfoCard({
             ) : (
               <button
                 id="connectBtn"
-                onClick={onConnect}
+                onClick={handleConnect}
                 className="refresh-btn"
                 disabled={isConnecting}
                 style={{
@@ -191,7 +172,7 @@ export default function InfoCard({
               </select>
               <button
                 id="setBearerBtn"
-                onClick={() => onSetBearerPreference(selectedBearer)}
+                onClick={() => handleSetBearerPreference(selectedBearer)}
                 disabled={!isPppDisconnected || isSettingBearer}
                 className="refresh-btn"
                 style={{

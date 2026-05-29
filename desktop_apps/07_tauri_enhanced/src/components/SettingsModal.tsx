@@ -1,32 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useRouterState } from '../context/RouterStateContext';
 
-interface SettingsModalProps {
-  isOpen: boolean;
-  initialIp: string;
-  initialPassword: string;
-  initialAutoRefreshInterval: number;
-  initialAutoRefreshOnStartup: boolean;
-  initialMainWindowOnStartup: string;
-  onCancel: () => void;
-  onSave: (
-    ip: string,
-    password: string,
-    autoRefreshInterval: number,
-    autoRefreshOnStartup: boolean,
-    mainWindowOnStartup: string
-  ) => Promise<void>;
-}
+export default function SettingsModal() {
+  const {
+    isSettingsOpen,
+    setIsSettingsOpen,
+    routerIp: initialIp,
+    routerPassword: initialPassword,
+    autoRefreshInterval: initialAutoRefreshInterval,
+    autoRefreshOnStartup: initialAutoRefreshOnStartup,
+    mainWindowOnStartup: initialMainWindowOnStartup,
+    handleSaveSettings: onSave,
+  } = useRouterState();
 
-export default function SettingsModal({
-  isOpen,
-  initialIp,
-  initialPassword,
-  initialAutoRefreshInterval,
-  initialAutoRefreshOnStartup,
-  initialMainWindowOnStartup,
-  onCancel,
-  onSave,
-}: SettingsModalProps) {
   const [ip, setIp] = useState(initialIp);
   const [password, setPassword] = useState(initialPassword);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(initialAutoRefreshInterval);
@@ -36,7 +22,7 @@ export default function SettingsModal({
 
   // Sync state with props when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isSettingsOpen) {
       setIp(initialIp);
       setPassword(initialPassword);
       setAutoRefreshInterval(initialAutoRefreshInterval);
@@ -44,7 +30,7 @@ export default function SettingsModal({
       setMainWindowOnStartup(initialMainWindowOnStartup);
     }
   }, [
-    isOpen,
+    isSettingsOpen,
     initialIp,
     initialPassword,
     initialAutoRefreshInterval,
@@ -65,7 +51,7 @@ export default function SettingsModal({
     <div
       id="settingsOverlay"
       data-tauri-drag-region
-      className={`fullscreen-overlay ${isOpen ? 'active' : ''}`}
+      className={`fullscreen-overlay ${isSettingsOpen ? 'active' : ''}`}
     >
       <div className="overlay-card" style={{ maxWidth: '480px' }}>
         <h2 className="overlay-title">Router Settings</h2>
@@ -139,7 +125,7 @@ export default function SettingsModal({
           <div className="form-actions">
             <button
               id="settingsCancelBtn"
-              onClick={onCancel}
+              onClick={() => setIsSettingsOpen(false)}
               className="btn btn-secondary"
               disabled={isSaving}
             >

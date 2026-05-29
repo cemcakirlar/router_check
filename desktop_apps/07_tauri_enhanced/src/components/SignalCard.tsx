@@ -1,16 +1,5 @@
 import Sparkline from './Sparkline';
-
-interface SignalCardProps {
-  rsrp: number | null;
-  sinr: number | null;
-  cellId: string;
-  earfcn: string;
-  rsrpHistory: number[];
-  sinrHistory: number[];
-  isConnected: boolean;
-  onStartRecovery: () => void;
-  isRecovering: boolean;
-}
+import { useRouterState } from '../context/RouterStateContext';
 
 function Grade({
   value,
@@ -18,7 +7,7 @@ function Grade({
 }: {
   value: number | null;
   thresholds: { excellent: number; good: number; fair: number };
-}) {
+ }) {
   if (value === null || isNaN(value)) return <span>--</span>;
   if (value >= thresholds.excellent) {
     return (
@@ -44,17 +33,21 @@ function Grade({
   );
 }
 
-export default function SignalCard({
-  rsrp,
-  sinr,
-  cellId,
-  earfcn,
-  rsrpHistory,
-  sinrHistory,
-  isConnected,
-  onStartRecovery,
-  isRecovering,
-}: SignalCardProps) {
+export default function SignalCard() {
+  const {
+    rsrp,
+    sinr,
+    cellId,
+    earfcn,
+    rsrpHistory,
+    sinrHistory,
+    isConnected,
+    handleCellRecovery,
+    recoveryStep,
+  } = useRouterState();
+
+  const isRecovering = recoveryStep !== "idle";
+
   // Calculations for fill percentage
   const rsrpPct = rsrp !== null ? Math.min(Math.max(((rsrp + 120) / 60) * 100, 0), 100) : 0;
   const sinrPct = sinr !== null ? Math.min(Math.max((sinr / 20) * 100, 0), 100) : 0;
@@ -184,7 +177,7 @@ export default function SignalCard({
         <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.04)', paddingTop: '1rem' }}>
           <button
             id="cellRecoveryBtn"
-            onClick={onStartRecovery}
+            onClick={handleCellRecovery}
             disabled={isRecovering}
             className="refresh-btn"
             style={{
