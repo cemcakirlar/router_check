@@ -1,12 +1,30 @@
 {
-  "name": "router-check-desktop-apps",
+  "name": "router-check",
   "version": "1.0.0",
-  "description": "Monorepo to build and bundle all RouterCheck desktop application variants",
-  "private": true,
+  "description": "ZTE Router Dashboard",
   "scripts": {
-    "build": "node scripts/build-all.js"
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "vite-dev": "vite",
+    "vite-build": "vite build",
+    "clean": "cargo clean --manifest-path src-tauri/Cargo.toml && rm -rf src-tauri/target",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "dependencies": {
+    "@tauri-apps/api": "2.11.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.2",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "esbuild": "0.28.0",
+    "typescript": "^6.0.3",
+    "vite": "8.0.14",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0"
+  }
 }
