@@ -9,7 +9,9 @@
     "vite-dev": "vite",
     "vite-build": "vite build",
     "clean": "cargo clean --manifest-path src-tauri/Cargo.toml && rm -rf src-tauri/target",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "cargo test --manifest-path src-tauri/Cargo.toml --test router_live -- --nocapture",
+    "test:e2e:live": "bash scripts/run-e2e.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.0",

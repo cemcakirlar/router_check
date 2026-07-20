@@ -53,3 +53,28 @@ npm run build
 ## 🛠️ Configuration
 
 The app will prompt you for configuration details on first launch, or you can manage them within the application. The configurations are saved locally under the standard application config directory (`config.json`).
+
+---
+
+## Live router e2e (read-only)
+
+Hits your LAN ZTE router through the same Rust HTTP path as the app (login / logout / telemetry / stations). Credentials are read **only** from project-root `.env.e2e` (never from `config.json`).
+
+**ZTE login codes** (`LOGIN_MULTI_USER` `_orig.result`): `"0"` = success, `"1"` = wrong password. Do **not** probe wrong passwords in e2e — many units lock login for ~5 minutes.
+
+**One-time setup** (~30 seconds):
+
+```bash
+cp .env.e2e.example .env.e2e
+# edit .env.e2e → set ROUTER_IP and ROUTER_PASSWORD (correct password only)
+```
+
+Required keys: `ROUTER_IP`, `ROUTER_PASSWORD`. If either is missing, the suite skips and prints what to fix.
+
+**Run:**
+
+```bash
+npm run test:e2e:live
+```
+
+Use `--nocapture` (already in the npm script) so response JSON shapes are printed to the terminal.

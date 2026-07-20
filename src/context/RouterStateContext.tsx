@@ -20,6 +20,25 @@ async function fnCall<T>(command: string, args: Record<string, unknown> = {}): P
   }
 }
 
+/** Login/logout success shape from Rust: `{ result: "0", verified: true }`. Never trust make_request's POST `success` wrapper. */
+interface AuthCommandResult {
+  result?: string;
+  verified?: boolean;
+}
+
+function isAuthOk(result: AuthCommandResult | null | undefined): boolean {
+  return !!result && (result.verified === true || result.result === "0");
+}
+
+function authErrorMessage(e: unknown, fallback: string): string {
+  if (typeof e === "string" && e.trim()) return e;
+  if (e && typeof e === "object" && "message" in e) {
+    const msg = (e as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.trim()) return msg;
+  }
+  return fallback;
+}
+
 const COMMANDS = [
   "modem_main_state",
   "signalbar",
@@ -286,12 +305,11 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
     try {
       let data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") });
 
-      // Check if router requires login
+      // Check if router requires login (MF286R: network_provider empty when unauthenticated)
       if (!data || data.result === "not_login" || !data.network_provider) {
-        console.log("🔑 Router returned not_login. Attempting login...");
-        const loginResult = await fnCall<{ result: string; success?: boolean }>("login");
-        if (loginResult && (loginResult.success || loginResult.result === "0" || loginResult.result === "ok")) {
-          // Retry fetch
+        console.log("🔑 Router requires login. Attempting login...");
+        const loginResult = await fnCall<AuthCommandResult>("login");
+        if (isAuthOk(loginResult)) {
           data = await fnCall<RouterData>("fetch_router_data", { commands: COMMANDS.join(",") });
         } else {
           throw new Error("Login failed");
@@ -377,12 +395,12 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
           title: `${netType} | RSRP: ${rsrpVal}dBm | SINR: ${sinrVal}dB | CID: ${cellIdVal}`,
         }).catch(() => {});
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Refresh failed:", e);
-      const errStr = String(e);
-      if (errStr.includes("Login failed") || errStr.includes("password") || errStr.includes("unauthorized")) {
+      const errStr = authErrorMessage(e, String(e));
+      if (errStr.includes("Login failed") || errStr.toLowerCase().includes("password") || errStr.includes("unauthorized")) {
         setAutoRefresh(false);
-        showToast("Auto-refresh paused: Login failed (check password)", "error");
+        showToast(`Auto-refresh paused: ${errStr}`, "error");
       }
       setRouterData(null);
       setStations([]);
@@ -408,17 +426,15 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
   const handleLogin = async () => {
     setIsLoggingIn(true);
     try {
-      const result = await fnCall<{ result: string; success?: boolean }>("login");
-      const success = result && (result.success || result.result === "0" || result.result === "ok");
-      if (success) {
+      const result = await fnCall<AuthCommandResult>("login");
+      if (isAuthOk(result)) {
         showToast("Logged in successfully!", "success");
         setTimeout(refresh, 500);
       } else {
         showToast("Login failed.", "error");
       }
-    } catch (e: any) {
-      const errorMsg = typeof e === "string" ? e : (e?.message || "An error occurred during login.");
-      showToast(errorMsg, "error");
+    } catch (e: unknown) {
+      showToast(authErrorMessage(e, "An error occurred during login."), "error");
     } finally {
       setIsLoggingIn(false);
     }

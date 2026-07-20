@@ -1,21 +1,21 @@
 use std::collections::HashMap;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use tauri::State;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use crate::{AppState, AppConfig, make_request, get_epoch_ms};
+
+use crate::{get_epoch_ms, make_request, AppConfig, AppState};
 
 /// Recreates the reqwest Client to completely clear cookies and cached connection pools.
-fn reset_session(state: &AppState) -> Result<(), String> {
-    let new_client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .cookie_store(true)
-        .build()
-        .map_err(|e| format!("Failed to rebuild client: {}", e))?;
-    let mut guard = state.client.write().map_err(|e| format!("Client lock poisoned: {}", e))?;
+pub fn reset_session(state: &AppState) -> Result<(), String> {
+    let new_client = crate::build_http_client()?;
+    let mut guard = state
+        .client
+        .write()
+        .map_err(|e| format!("Client lock poisoned: {}", e))?;
     *guard = new_client;
     Ok(())
 }
 
-async fn verify_login_status(state: &AppState) -> Result<bool, String> {
+pub async fn verify_login_status(state: &AppState) -> Result<bool, String> {
     let now = get_epoch_ms();
     let verify_path = format!(
         "/goform_get_cmd_process?isTest=false&multi_data=1&cmd=hardware_version&_={}",
@@ -24,7 +24,8 @@ async fn verify_login_status(state: &AppState) -> Result<bool, String> {
 
     match make_request(state, &verify_path, None, "GET").await {
         Ok(verify_data) => {
-            let hw_ver = verify_data.get("hardware_version")
+            let hw_ver = verify_data
+                .get("hardware_version")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             Ok(!hw_ver.is_empty())
@@ -33,48 +34,95 @@ async fn verify_login_status(state: &AppState) -> Result<bool, String> {
     }
 }
 
-/// Performs an authentication handshake with the router.
-/// Decodes the local router password configuration, encodes it to Base64,
-/// and sends a login POST payload to `/goform_set_cmd_process`.
-#[tauri::command]
-pub async fn login(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    // Reset session before login just in case there's any dirty session cookie
-    reset_session(&state)?;
+/// Reads the ZTE goform POST verdict from `make_request`'s wrapper (`_orig.result`).
+/// The top-level `success: true` from `make_request` is **not** the router verdict.
+/// Observed on MF286R: `"0"` = ok, `"1"` = wrong password.
+pub fn zte_post_result(wrapped: &serde_json::Value) -> Option<String> {
+    let result = wrapped.get("_orig")?.get("result")?;
+    if let Some(s) = result.as_str() {
+        return Some(s.to_string());
+    }
+    if let Some(n) = result.as_i64() {
+        return Some(n.to_string());
+    }
+    if let Some(n) = result.as_u64() {
+        return Some(n.to_string());
+    }
+    None
+}
 
-    let password = {
-        let cfg = state.config.read().map_err(|e| format!("Config lock poisoned: {}", e))?;
-        cfg.router_password.clone()
-    };
-    
+fn auth_ok_response(router_result: &str) -> serde_json::Value {
+    serde_json::json!({
+        "result": router_result,
+        "verified": true,
+    })
+}
+
+/// Sends a LOGIN_MULTI_USER POST with the given password (Base64-encoded).
+/// Does **not** call `verify_login_status` — useful for inspecting raw `_orig` shapes.
+pub async fn login_raw_post(
+    state: &AppState,
+    password: &str,
+) -> Result<serde_json::Value, String> {
     let enc_pass = BASE64.encode(password.as_bytes());
-    
+
     let mut payload = HashMap::new();
     payload.insert("isTest".to_string(), "false".to_string());
     payload.insert("goformId".to_string(), "LOGIN_MULTI_USER".to_string());
     payload.insert("user".to_string(), "admin".to_string());
     payload.insert("password".to_string(), enc_pass);
-    
+
+    make_request(state, "/goform_set_cmd_process", Some(payload), "POST").await
+}
+
+/// Performs an authentication handshake with the router using the password in config,
+/// then verifies the session via `hardware_version`.
+pub async fn login_inner(state: &AppState) -> Result<serde_json::Value, String> {
+    reset_session(state)?;
+
+    let password = {
+        let cfg = state
+            .config
+            .read()
+            .map_err(|e| format!("Config lock poisoned: {}", e))?;
+        cfg.router_password.clone()
+    };
+
     println!("🔑 Attempting login to router...");
-    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
-    println!("🔑 Login response: {:?}", result);
-    
-    // Verify login state
-    if !verify_login_status(&state).await? {
-        // Reset session immediately to clear any partial cookies or failed login attempts
-        reset_session(&state)?;
+    let wrapped = login_raw_post(state, &password).await?;
+    println!("🔑 Login response: {:?}", wrapped);
+
+    let Some(code) = zte_post_result(&wrapped) else {
+        reset_session(state)?;
+        return Err("Login failed: unexpected response shape (missing _orig.result)".to_string());
+    };
+
+    // Fail fast on known wrong-password code before a second round-trip.
+    if code == "1" {
+        reset_session(state)?;
         return Err("Login failed: wrong password".to_string());
     }
 
+    if code != "0" {
+        reset_session(state)?;
+        return Err(format!(
+            "Login failed: router returned result code {}",
+            code
+        ));
+    }
+
+    if !verify_login_status(state).await? {
+        reset_session(state)?;
+        return Err("Login failed: session not established".to_string());
+    }
+
     println!("✅ Login verified successfully.");
-    Ok(result)
+    Ok(auth_ok_response(&code))
 }
 
-/// Logs out the active session from the router's web portal
-/// by sending a logout request.
-#[tauri::command]
-pub async fn logout(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    // Attempt normal router logout first. It might fail or succeed, but we do it gracefully.
-    let ad = fetch_ad_token(&state).await.unwrap_or_default();
+/// Logs out the active session and clears the local cookie jar.
+pub async fn logout_inner(state: &AppState) -> Result<serde_json::Value, String> {
+    let ad = fetch_ad_token(state).await.unwrap_or_default();
 
     let mut payload = HashMap::new();
     payload.insert("isTest".to_string(), "false".to_string());
@@ -82,90 +130,117 @@ pub async fn logout(state: State<'_, AppState>) -> Result<serde_json::Value, Str
     if !ad.is_empty() {
         payload.insert("AD".to_string(), ad);
     }
-    
+
     println!("🚪 Attempting logout from router...");
-    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await;
-    println!("🚪 Logout response: {:?}", result);
-    
-    // Crucially, reset the reqwest client to drop all cookies locally!
-    reset_session(&state)?;
-    
-    // Verify we are indeed logged out
-    if verify_login_status(&state).await? {
+    let wrapped = make_request(state, "/goform_set_cmd_process", Some(payload), "POST").await;
+    println!("🚪 Logout response: {:?}", wrapped);
+
+    let router_result = match &wrapped {
+        Ok(v) => {
+            let code = zte_post_result(v);
+            if let Some(ref c) = code {
+                println!("🚪 Logout _orig.result={}", c);
+            }
+            code.unwrap_or_else(|| "0".to_string())
+        }
+        Err(_) => "0".to_string(),
+    };
+
+    // Always drop local cookies; session verify is the source of truth.
+    reset_session(state)?;
+
+    if verify_login_status(state).await? {
         return Err("Logout failed: session still active".to_string());
     }
-    
+
     println!("✅ Logout verified successfully.");
-    Ok(serde_json::json!({ "success": true }))
+    Ok(auth_ok_response(&router_result))
 }
 
-/// Fetches multiple diagnostic telemetry parameters from the router (e.g., RSRP, SINR, band info)
-/// by passing a comma-separated list of telemetry parameter keys.
-#[tauri::command]
-pub async fn fetch_router_data(state: State<'_, AppState>, commands: String) -> Result<serde_json::Value, String> {
+pub async fn fetch_router_data_inner(
+    state: &AppState,
+    commands: &str,
+) -> Result<serde_json::Value, String> {
     let now = get_epoch_ms();
-        
     let path = format!(
         "/goform_get_cmd_process?isTest=false&multi_data=1&cmd={}&_={}",
         commands, now
     );
-    
-    make_request(&state, &path, None, "GET").await
+    make_request(state, &path, None, "GET").await
 }
 
-/// Retrieves the list of currently connected wireless/wired client stations
-/// from the router's active DHCP leases table.
-#[tauri::command]
-pub async fn fetch_stations(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+pub async fn fetch_stations_inner(state: &AppState) -> Result<serde_json::Value, String> {
     let now = get_epoch_ms();
-        
     let path = format!(
         "/goform_get_cmd_process?isTest=false&cmd=station_list&_={}",
         now
     );
-    
-    make_request(&state, &path, None, "GET").await
+    make_request(state, &path, None, "GET").await
 }
 
-/// Fetches the list of static/reserved IP address allocations configured
-/// in the router's DHCP reservation table.
-#[tauri::command]
-pub async fn fetch_static_ips(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+pub async fn fetch_static_ips_inner(state: &AppState) -> Result<serde_json::Value, String> {
     let now = get_epoch_ms();
-        
     let path = format!(
         "/goform_get_cmd_process?isTest=false&cmd=current_static_addr_list&_={}",
         now
     );
-    
-    make_request(&state, &path, None, "GET").await
+    make_request(state, &path, None, "GET").await
 }
 
-/// Retrieves the current application configuration (Router IP & Password)
-/// stored in memory.
+#[tauri::command]
+pub async fn login(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    login_inner(&state).await
+}
+
+#[tauri::command]
+pub async fn logout(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    logout_inner(&state).await
+}
+
+#[tauri::command]
+pub async fn fetch_router_data(
+    state: State<'_, AppState>,
+    commands: String,
+) -> Result<serde_json::Value, String> {
+    fetch_router_data_inner(&state, &commands).await
+}
+
+#[tauri::command]
+pub async fn fetch_stations(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    fetch_stations_inner(&state).await
+}
+
+#[tauri::command]
+pub async fn fetch_static_ips(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    fetch_static_ips_inner(&state).await
+}
+
 #[tauri::command]
 pub fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
-    let cfg = state.config.read().map_err(|e| format!("Config lock poisoned: {}", e))?;
+    let cfg = state
+        .config
+        .read()
+        .map_err(|e| format!("Config lock poisoned: {}", e))?;
     Ok(cfg.clone())
 }
 
-/// Updates the application configuration both in active memory and
-/// permanently by overwriting the `config.json` configuration file.
 #[tauri::command]
 pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Result<(), String> {
-    // Save to memory
     {
-        let mut cfg = state.config.write().map_err(|e| format!("Config lock poisoned: {}", e))?;
+        let mut cfg = state
+            .config
+            .write()
+            .map_err(|e| format!("Config lock poisoned: {}", e))?;
         *cfg = config.clone();
     }
-    
-    // Save to config.json asynchronously
+
     let content = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
-        
-    tokio::fs::write(&state.config_path, content).await
+
+    tokio::fs::write(&state.config_path, content)
+        .await
         .map_err(|e| format!("Failed to write config file: {}", e))?;
-    
+
     println!("⚙️ Config saved successfully: {:?}", config);
     Ok(())
 }
@@ -204,30 +279,36 @@ pub fn update_menu_item_text(state: State<'_, AppState>, text: String) -> Result
 
 #[tauri::command]
 pub fn get_pending_actions(state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let mut guard = state.pending_actions.write().map_err(|e| format!("Poisoned: {}", e))?;
+    let mut guard = state
+        .pending_actions
+        .write()
+        .map_err(|e| format!("Poisoned: {}", e))?;
     let actions = guard.clone();
     guard.clear();
     Ok(actions)
 }
 
-async fn fetch_ad_token(state: &State<'_, AppState>) -> Result<String, String> {
+async fn fetch_ad_token(state: &AppState) -> Result<String, String> {
     let now = get_epoch_ms();
     let get_path = format!(
         "/goform_get_cmd_process?isTest=false&multi_data=1&cmd=wa_inner_version,cr_version,RD&_={}",
         now
     );
-    
+
     let auth_info = make_request(state, &get_path, None, "GET").await?;
-    
-    let wa_inner = auth_info.get("wa_inner_version")
+
+    let wa_inner = auth_info
+        .get("wa_inner_version")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing wa_inner_version from router response".to_string())?;
-        
-    let cr_ver = auth_info.get("cr_version")
+
+    let cr_ver = auth_info
+        .get("cr_version")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing cr_version from router response".to_string())?;
-        
-    let rd = auth_info.get("RD")
+
+    let rd = auth_info
+        .get("RD")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing RD from router response".to_string())?;
 
@@ -236,7 +317,7 @@ async fn fetch_ad_token(state: &State<'_, AppState>) -> Result<String, String> {
     let first_md5 = format!("{:x}", md5::compute(first_concat.as_bytes()));
     let second_concat = format!("{}{}", first_md5, rd);
     let ad = format!("{:x}", md5::compute(second_concat.as_bytes()));
-    
+
     Ok(ad)
 }
 
@@ -277,7 +358,10 @@ pub async fn connect_network(state: State<'_, AppState>) -> Result<serde_json::V
 }
 
 #[tauri::command]
-pub async fn set_bearer_preference(state: State<'_, AppState>, preference: String) -> Result<serde_json::Value, String> {
+pub async fn set_bearer_preference(
+    state: State<'_, AppState>,
+    preference: String,
+) -> Result<serde_json::Value, String> {
     if preference != "Only_LTE" && preference != "Only_WCDMA" && preference != "NETWORK_auto" {
         return Err(format!("Invalid bearer preference: {}", preference));
     }
@@ -291,13 +375,12 @@ pub async fn set_bearer_preference(state: State<'_, AppState>, preference: Strin
     payload.insert("BearerPreference".to_string(), preference.clone());
     payload.insert("AD".to_string(), ad.clone());
 
-    println!("🔌 Sending SET_BEARER_PREFERENCE command with BearerPreference={} and AD={}...", preference, ad);
+    println!(
+        "🔌 Sending SET_BEARER_PREFERENCE command with BearerPreference={} and AD={}...",
+        preference, ad
+    );
     let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
     println!("🔌 Bearer preference response: {:?}", result);
 
     Ok(result)
 }
-
-
-
-

@@ -5,6 +5,14 @@ description = "ZTE Router Dashboard"
 authors = ["Cem Cakirlar"]
 edition = "2021"
 
+[lib]
+name = "router_check"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "router-check"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
 
