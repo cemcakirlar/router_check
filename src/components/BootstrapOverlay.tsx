@@ -1,20 +1,10 @@
-import { useRouterState } from '../context/RouterStateContext';
+import { useRouterState } from "../context/RouterStateContext";
 
 export default function BootstrapOverlay() {
-  const {
-    isBootstrapOpen,
-    bootstrapHasError,
-    routerIp,
-    refresh,
-    setIsSettingsOpen,
-  } = useRouterState();
+  const { isBootstrapOpen, bootstrapHasError, routerIp, refresh, setIsSettingsOpen } = useRouterState();
 
   return (
-    <div
-      id="bootstrapOverlay"
-      data-tauri-drag-region
-      className={`fullscreen-overlay ${isBootstrapOpen ? 'active' : ''}`}
-    >
+    <div id="bootstrapOverlay" data-tauri-drag-region className={`fullscreen-overlay ${isBootstrapOpen ? "active" : ""}`}>
       <div className="overlay-card">
         {!bootstrapHasError && (
           <div className="spinner-container">
@@ -22,30 +12,25 @@ export default function BootstrapOverlay() {
             <div className="spinner" />
           </div>
         )}
-        <h2 className="overlay-title">
-          {bootstrapHasError ? 'CONNECTION FAILURE' : 'INITIALIZING CONNECTION'}
-        </h2>
+        <h2 className="overlay-title">{bootstrapHasError ? "CONNECTION FAILURE" : "INITIALIZING CONNECTION"}</h2>
         <div className="progress-text">
           {bootstrapHasError ? (
-            <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
-              Could not connect to router at {routerIp}. Check settings or password.
-            </span>
+            <span className="text-danger font-semibold">Could not connect to router at {routerIp}. Check settings or password.</span>
           ) : (
             `Connecting to router at ${routerIp}...`
           )}
         </div>
-        
-        <div
-          className="form-actions"
-          style={{ display: bootstrapHasError ? 'flex' : 'none', marginTop: '1rem', width: '100%' }}
-        >
-          <button onClick={() => setIsSettingsOpen(true)} className="btn btn-secondary">
-            Settings
-          </button>
-          <button onClick={refresh} className="btn btn-primary">
-            Retry
-          </button>
-        </div>
+
+        {bootstrapHasError ? (
+          <div className="form-actions mt-md">
+            <button onClick={() => setIsSettingsOpen(true)} className="btn btn-secondary">
+              Settings
+            </button>
+            <button onClick={refresh} className="btn btn-primary">
+              Retry
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

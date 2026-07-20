@@ -25,7 +25,6 @@ export default function SettingsModal() {
   const [isSaving, setIsSaving] = useState(false);
   const [ipError, setIpError] = useState("");
 
-  // Sync state with props when modal opens
   useEffect(() => {
     if (isSettingsOpen) {
       setIp(initialIp);
@@ -46,7 +45,6 @@ export default function SettingsModal() {
     initialThemeMode,
   ]);
 
-  // Restore saved theme if the modal closes without saving
   useEffect(() => {
     if (!isSettingsOpen) {
       applyThemeMode(initialThemeMode);
@@ -95,11 +93,9 @@ export default function SettingsModal() {
 
   return (
     <div id="settingsOverlay" data-tauri-drag-region className={`fullscreen-overlay ${isSettingsOpen ? "active" : ""}`}>
-      <div className="overlay-card" style={{ maxWidth: "480px" }}>
+      <div className="overlay-card overlay-card-sm">
         <h2 className="overlay-title">Router Settings</h2>
-        <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", marginBottom: "0.5rem", textAlign: "left", width: "100%" }}>
-          Provide the IP address, admin credentials, and application behavior settings.
-        </p>
+        <p className="settings-intro">Provide the IP address, admin credentials, and application behavior settings.</p>
         <div className="settings-form">
           <div className="form-group">
             <label htmlFor="settingsIp">Router IP Address</label>
@@ -114,9 +110,7 @@ export default function SettingsModal() {
                 setIpError("");
               }}
             />
-            {ipError ? (
-              <p style={{ color: "var(--danger, #ef4444)", fontSize: "0.75rem", marginTop: "0.35rem", textAlign: "left" }}>{ipError}</p>
-            ) : null}
+            {ipError ? <p className="form-error">{ipError}</p> : null}
           </div>
           <div className="form-group">
             <label htmlFor="settingsPassword">Admin Password</label>
@@ -143,18 +137,15 @@ export default function SettingsModal() {
             />
           </div>
 
-          <div
-            className="form-group"
-            style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", marginTop: "0.2rem" }}
-          >
+          <div className="form-group form-check">
             <input
               type="checkbox"
               id="settingsAutoRefreshOnStartup"
-              style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--accent-primary)" }}
+              className="form-check-input"
               checked={autoRefreshOnStartup}
               onChange={(e) => setAutoRefreshOnStartup(e.target.checked)}
             />
-            <label htmlFor="settingsAutoRefreshOnStartup" style={{ cursor: "pointer", textTransform: "none", marginBottom: 0 }}>
+            <label htmlFor="settingsAutoRefreshOnStartup" className="form-check-label">
               Auto Refresh on Startup
             </label>
           </div>
@@ -163,8 +154,7 @@ export default function SettingsModal() {
             <label htmlFor="settingsMainWindowOnStartup">Main Window Initial Status</label>
             <select
               id="settingsMainWindowOnStartup"
-              className="form-input"
-              style={{ background: "var(--surface-inset-strong)", color: "var(--text-main)", cursor: "pointer" }}
+              className="form-input form-select"
               value={mainWindowOnStartup}
               onChange={(e) => setMainWindowOnStartup(e.target.value)}
             >
@@ -177,8 +167,7 @@ export default function SettingsModal() {
             <label htmlFor="settingsThemeMode">Theme</label>
             <select
               id="settingsThemeMode"
-              className="form-input"
-              style={{ background: "var(--surface-inset-strong)", color: "var(--text-main)", cursor: "pointer" }}
+              className="form-input form-select"
               value={themeMode}
               onChange={(e) => handleThemeChange(normalizeThemeMode(e.target.value))}
             >

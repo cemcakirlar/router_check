@@ -1,18 +1,19 @@
 import Sparkline from "./Sparkline";
 import { useRouterState } from "../context/RouterStateContext";
+import type { CSSProperties } from "react";
 
 function Grade({ value, thresholds }: { value: number | null; thresholds: { excellent: number; good: number; fair: number } }) {
   if (value === null || isNaN(value)) return <span>--</span>;
   if (value >= thresholds.excellent) {
-    return <span style={{ color: "var(--success)", textShadow: "0 0 10px var(--success-glow)" }}>Excellent</span>;
+    return <span className="text-glow-success">Excellent</span>;
   }
   if (value >= thresholds.good) {
-    return <span style={{ color: "var(--accent-primary)", textShadow: "0 0 10px var(--accent-primary-glow)" }}>Good</span>;
+    return <span className="text-glow-accent">Good</span>;
   }
   if (value >= thresholds.fair) {
-    return <span style={{ color: "var(--warning)" }}>Fair</span>;
+    return <span className="text-warning">Fair</span>;
   }
-  return <span style={{ color: "var(--danger)", textShadow: "0 0 10px var(--danger-glow)" }}>Poor</span>;
+  return <span className="text-glow-danger">Poor</span>;
 }
 
 export default function SignalCard() {
@@ -20,11 +21,9 @@ export default function SignalCard() {
 
   const isRecovering = recoveryStep !== "idle";
 
-  // Calculations for fill percentage
   const rsrpPct = rsrp !== null ? Math.min(Math.max(((rsrp + 120) / 60) * 100, 0), 100) : 0;
   const sinrPct = sinr !== null ? Math.min(Math.max((sinr / 20) * 100, 0), 100) : 0;
 
-  // Stats calculation
   const getRsrpStats = () => {
     if (rsrpHistory.length === 0) return { min: "--", max: "--", avg: "--" };
     const min = Math.min(...rsrpHistory);
@@ -52,11 +51,13 @@ export default function SignalCard() {
   const rsrpStats = getRsrpStats();
   const sinrStats = getSinrStats();
 
+  const rsrpFillStyle = { ["--fill-width" as string]: `${rsrpPct}%` } as CSSProperties;
+  const sinrFillStyle = { ["--fill-width" as string]: `${sinrPct}%` } as CSSProperties;
+
   return (
     <div className="card md:col-span-4">
       <div className="card-title">📶 Network & Signal</div>
       <div className="signal-grid">
-        {/* RSRP Panel */}
         <div>
           <div className="sub-value">RSRP (Strength)</div>
           <div className="big-value">
@@ -69,9 +70,9 @@ export default function SignalCard() {
             )}
           </div>
           <div className="signal-meter">
-            <div className="signal-fill" style={{ width: `${rsrpPct}%` }} />
+            <div className="signal-fill" style={rsrpFillStyle} />
           </div>
-          <div style={{ fontSize: "0.75rem", marginTop: "0.4rem", fontWeight: 600 }}>
+          <div className="grade-label">
             <Grade value={rsrp} thresholds={{ excellent: -80, good: -90, fair: -105 }} />
           </div>
           <div className="sparkline-container">
@@ -93,7 +94,6 @@ export default function SignalCard() {
           </div>
         </div>
 
-        {/* SINR Panel */}
         <div>
           <div className="sub-value">SINR (Quality)</div>
           <div className="big-value">
@@ -106,9 +106,9 @@ export default function SignalCard() {
             )}
           </div>
           <div className="signal-meter">
-            <div className="signal-fill" style={{ width: `${sinrPct}%` }} />
+            <div className="signal-fill" style={sinrFillStyle} />
           </div>
-          <div style={{ fontSize: "0.75rem", marginTop: "0.4rem", fontWeight: 600 }}>
+          <div className="grade-label">
             <Grade value={sinr} thresholds={{ excellent: 15, good: 10, fair: 5 }} />
           </div>
           <div className="sparkline-container">
@@ -130,32 +130,22 @@ export default function SignalCard() {
           </div>
         </div>
       </div>
-      <div style={{ marginTop: "0.8rem", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <div className="row-between-baseline mt-sm">
         <div className="sub-value">
-          Cell ID: <span style={{ color: "var(--text-main)", fontWeight: 700 }}>{cellId || "--"}</span>
+          Cell ID: <span className="text-main font-strong">{cellId || "--"}</span>
         </div>
         <div className="sub-value">
-          EARFCN: <span style={{ color: "var(--text-main)", fontWeight: 700 }}>{earfcn || "--"}</span>
+          EARFCN: <span className="text-main font-strong">{earfcn || "--"}</span>
         </div>
       </div>
 
       {isConnected && (
-        <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.04)", paddingTop: "1rem" }}>
+        <div className="card-section">
           <button
             id="cellRecoveryBtn"
             onClick={handleCellRecovery}
             disabled={isRecovering}
-            className="refresh-btn"
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              background: "rgba(139, 92, 246, 0.12)",
-              borderColor: "rgba(139, 92, 246, 0.35)",
-              color: "var(--accent-secondary)",
-              boxShadow: "0 4px 10px var(--accent-secondary-glow)",
-              cursor: isRecovering ? "not-allowed" : "pointer",
-              padding: "0.6rem",
-            }}
+            className="refresh-btn refresh-btn-block btn-accent-soft"
           >
             {isRecovering ? "⚡ RECOVERING..." : "⚡ RECOVER CELL"}
           </button>

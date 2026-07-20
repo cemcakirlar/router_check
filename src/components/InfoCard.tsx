@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useRouterState } from '../context/RouterStateContext';
+import { useState, useEffect } from "react";
+import { useRouterState } from "../context/RouterStateContext";
 
 export default function InfoCard() {
   const {
@@ -28,205 +28,155 @@ export default function InfoCard() {
   const wifiClients = routerData?.wifi_access_sta_num || "";
 
   const formatPppStatus = (status: string) => {
-    if (!status) return '--';
-    if (status.includes('connected') && !status.includes('disconnected')) {
-      return 'Connected';
+    if (!status) return "--";
+    if (status.includes("connected") && !status.includes("disconnected")) {
+      return "Connected";
     }
-    if (status.includes('disconnected')) {
-      return 'Disconnected';
+    if (status.includes("disconnected")) {
+      return "Disconnected";
     }
-    if (status.includes('connecting')) {
-      return 'Connecting...';
+    if (status.includes("connecting")) {
+      return "Connecting...";
     }
-    if (status.includes('disconnecting')) {
-      return 'Disconnecting...';
+    if (status.includes("disconnecting")) {
+      return "Disconnecting...";
     }
-    const clean = status.replace(/_/g, ' ');
+    const clean = status.replace(/_/g, " ");
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };
 
   const getPppDotClass = (status: string) => {
-    if (!status) return '';
-    if (status.includes('connected') && !status.includes('disconnected')) {
-      return 'online';
+    if (!status) return "";
+    if (status.includes("connected") && !status.includes("disconnected")) {
+      return "online";
     }
-    return '';
+    return "";
   };
 
-  const isPppConnected = pppStatus.includes('connected') && !pppStatus.includes('disconnected');
-  const isPppDisconnected = pppStatus.includes('disconnected');
+  const isPppConnected = pppStatus.includes("connected") && !pppStatus.includes("disconnected");
+  const isPppDisconnected = pppStatus.includes("disconnected");
 
-  const [selectedBearer, setSelectedBearer] = useState('NETWORK_auto');
+  const [selectedBearer, setSelectedBearer] = useState("NETWORK_auto");
 
   useEffect(() => {
-    if (netSelect && ['Only_LTE', 'Only_WCDMA', 'NETWORK_auto'].includes(netSelect)) {
+    if (netSelect && ["Only_LTE", "Only_WCDMA", "NETWORK_auto"].includes(netSelect)) {
       setSelectedBearer(netSelect);
     }
   }, [netSelect]);
 
   return (
     <>
-      {/* Network & LAN Config */}
       <div className="card md:col-span-4">
         <div className="card-title">🌐 Network & LAN</div>
         <div className="info-grid">
           <div className="info-row">
             <span className="info-label">WAN IP</span>
-            <span className="info-value">{wanIp || '--'}</span>
+            <span className="info-value">{wanIp || "--"}</span>
           </div>
-          <div className="info-row" style={{ alignItems: 'center' }}>
+          <div className="info-row items-center">
             <span className="info-label">PPP Status</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <div className="row-center">
               <div className={`status-dot ${getPppDotClass(pppStatus)}`} />
               <span className="info-value">{formatPppStatus(pppStatus)}</span>
             </div>
           </div>
           <div className="info-row">
             <span className="info-label">LAN IP</span>
-            <span className="info-value">{lanIp || '--'}</span>
+            <span className="info-value">{lanIp || "--"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">Netmask</span>
-            <span className="info-value">{lanNetmask || '--'}</span>
+            <span className="info-value">{lanNetmask || "--"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">DHCP</span>
-            <span className="info-value">
-              {dhcpEnabled === '1' ? 'Enabled' : dhcpEnabled === '0' ? 'Disabled' : '--'}
-            </span>
+            <span className="info-value">{dhcpEnabled === "1" ? "Enabled" : dhcpEnabled === "0" ? "Disabled" : "--"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">WiFi MAC</span>
-            <span className="info-value">{macAddress || '--'}</span>
+            <span className="info-value">{macAddress || "--"}</span>
           </div>
         </div>
 
-        {/* Connection Action Buttons */}
         {isConnected && (
-          <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.04)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="card-section col-stack">
             {isPppConnected ? (
               <button
                 id="disconnectBtn"
                 onClick={handleDisconnect}
-                className="refresh-btn"
+                className="refresh-btn refresh-btn-block btn-danger-soft"
                 disabled={isDisconnecting}
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  borderColor: 'rgba(239, 68, 68, 0.35)',
-                  color: 'var(--danger)',
-                  boxShadow: '0 4px 10px rgba(239, 68, 68, 0.15)',
-                  padding: '0.5rem',
-                }}
               >
-                {isDisconnecting ? 'DISCONNECTING...' : '🔌 DISCONNECT PPP'}
+                {isDisconnecting ? "DISCONNECTING..." : "🔌 DISCONNECT PPP"}
               </button>
             ) : (
               <button
                 id="connectBtn"
                 onClick={handleConnect}
-                className="refresh-btn"
+                className="refresh-btn refresh-btn-block btn-success-soft-strong"
                 disabled={isConnecting}
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  borderColor: 'rgba(16, 185, 129, 0.35)',
-                  color: 'var(--success)',
-                  boxShadow: '0 4px 10px rgba(16, 185, 129, 0.15)',
-                  padding: '0.5rem',
-                }}
               >
-                {isConnecting ? 'CONNECTING...' : '🔌 CONNECT PPP'}
+                {isConnecting ? "CONNECTING..." : "🔌 CONNECT PPP"}
               </button>
             )}
 
-            {/* Bearer Preference Controls */}
-            <div style={{ display: 'flex', gap: '0.4rem', width: '100%', marginTop: '0.25rem' }}>
+            <div className="bearer-row">
               <select
                 id="bearerPreferenceSelect"
                 value={selectedBearer}
                 onChange={(e) => setSelectedBearer(e.target.value)}
                 disabled={!isPppDisconnected || isSettingBearer}
-                className="refresh-btn"
-                style={{
-                  flex: 1,
-                  background: 'var(--surface-control)',
-                  borderColor: 'var(--control-border)',
-                  color: isPppDisconnected ? 'var(--text-bright)' : 'var(--text-dim)',
-                  cursor: isPppDisconnected ? 'pointer' : 'not-allowed',
-                  outline: 'none',
-                  padding: '0.5rem',
-                }}
+                className="refresh-btn bearer-select"
               >
-                <option value="NETWORK_auto" style={{ background: 'var(--option-bg)', color: 'var(--option-color)' }}>
-                  Auto Network
-                </option>
-                <option value="Only_LTE" style={{ background: 'var(--option-bg)', color: 'var(--option-color)' }}>
-                  Only LTE
-                </option>
-                <option value="Only_WCDMA" style={{ background: 'var(--option-bg)', color: 'var(--option-color)' }}>
-                  Only WCDMA
-                </option>
+                <option value="NETWORK_auto">Auto Network</option>
+                <option value="Only_LTE">Only LTE</option>
+                <option value="Only_WCDMA">Only WCDMA</option>
               </select>
               <button
                 id="setBearerBtn"
                 onClick={() => handleSetBearerPreference(selectedBearer)}
                 disabled={!isPppDisconnected || isSettingBearer}
-                className="refresh-btn"
-                style={{
-                  background: isPppDisconnected ? 'rgba(59, 130, 246, 0.12)' : 'var(--surface-muted)',
-                  borderColor: isPppDisconnected ? 'rgba(59, 130, 246, 0.35)' : 'var(--border)',
-                  color: isPppDisconnected ? '#60a5fa' : 'var(--text-dim)',
-                  boxShadow: isPppDisconnected ? '0 4px 10px rgba(59, 130, 246, 0.15)' : 'none',
-                  cursor: isPppDisconnected ? 'pointer' : 'not-allowed',
-                  padding: '0.5rem 0.75rem',
-                }}
+                className={`refresh-btn ${isPppDisconnected ? "btn-info-soft" : "btn-muted"}`}
               >
-                {isSettingBearer ? 'SETTING...' : 'SET BEARER'}
+                {isSettingBearer ? "SETTING..." : "SET BEARER"}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* System & Network Info */}
       <div className="card md:col-span-4">
         <div className="card-title">🛠️ System Details</div>
         <div className="info-grid">
           <div className="info-row">
             <span className="info-label">IMEI</span>
-            <span className="info-value">{imei || '--'}</span>
+            <span className="info-value">{imei || "--"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">Firmware</span>
-            <span className="info-value">{firmware || '--'}</span>
+            <span className="info-value">{firmware || "--"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">Hardware</span>
-            <span className="info-value">{hardware || '--'}</span>
+            <span className="info-value">{hardware || "--"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">MSISDN</span>
-            <span className="info-value">{msisdn || '--'}</span>
+            <span className="info-value">{msisdn || "--"}</span>
           </div>
         </div>
       </div>
 
-      {/* System Stats */}
       <div className="card md:col-span-4">
         <div className="card-title">📊 System Stats</div>
         <div className="info-grid">
-          <div className="info-row" style={{ alignItems: 'center' }}>
+          <div className="info-row items-center">
             <span className="info-label">SMS Unread</span>
-            <span className="info-value" style={{ color: 'var(--accent-primary)' }}>
-              {smsUnread || '0'}
-            </span>
+            <span className="info-value text-accent">{smsUnread || "0"}</span>
           </div>
           <div className="info-row">
             <span className="info-label">WiFi Clients</span>
-            <span className="info-value">{wifiClients || '--'}</span>
+            <span className="info-value">{wifiClients || "--"}</span>
           </div>
         </div>
       </div>

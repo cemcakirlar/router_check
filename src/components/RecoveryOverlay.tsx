@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useRouterState } from "../context/RouterStateContext";
 
 export type RecoveryStep =
@@ -37,208 +38,75 @@ export default function RecoveryOverlay() {
 
   if (!isOpen) return null;
 
-  // Calculate progress percentage
   let activeIndex = STEPS_CONFIG.findIndex((s) => s.id === step);
   if (step === "completed") activeIndex = STEPS_CONFIG.length;
   if (step === "failed") activeIndex = STEPS_CONFIG.length;
 
   const percent = Math.min(100, Math.round(((activeIndex === -1 ? 0 : activeIndex) / STEPS_CONFIG.length) * 100));
+  const fillPercent = step === "completed" || step === "failed" ? 100 : percent;
+  const fillStyle = { ["--fill-width" as string]: `${fillPercent}%` } as CSSProperties;
+  const isTerminal = step === "completed" || step === "failed";
 
   return (
-    <div
-      id="recoveryOverlay"
-      data-tauri-drag-region
-      className="fullscreen-overlay active"
-      style={{
-        zIndex: 9999,
-        background: "var(--overlay-bg)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        transition: "all 0.3s ease",
-      }}
-    >
-      <div
-        className="overlay-card"
-        style={{
-          maxWidth: "540px",
-          width: "90%",
-          padding: "2rem",
-          background: "var(--overlay-card-bg)",
-          border: "1px solid rgba(139, 92, 246, 0.25)",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.25), 0 0 30px rgba(139, 92, 246, 0.15)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+    <div id="recoveryOverlay" data-tauri-drag-region className="fullscreen-overlay active recovery-overlay">
+      <div className="overlay-card recovery-card">
+        <div className="recovery-header">
           <div>
-            <h2
-              className="overlay-title"
-              style={{
-                fontSize: "1.3rem",
-                color: "var(--accent-secondary)",
-                letterSpacing: "1px",
-                margin: 0,
-                textAlign: "left",
-              }}
-            >
-              CELL RECOVERY SEQUENCE
-            </h2>
-            <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", margin: "4px 0 0 0", textAlign: "left" }}>
-              Re-initiating local tower attachment to recover SINR / signal performance.
-            </p>
+            <h2 className="overlay-title recovery-title">CELL RECOVERY SEQUENCE</h2>
+            <p className="recovery-subtitle">Re-initiating local tower attachment to recover SINR / signal performance.</p>
           </div>
-          <div
-            style={{
-              fontSize: "1.5rem",
-              animation: step === "completed" || step === "failed" ? "none" : "spin 3s linear infinite",
-            }}
-          >
+          <div className={`recovery-icon ${isTerminal ? "" : "is-spinning"}`}>
             {step === "completed" ? "✅" : step === "failed" ? "❌" : "⚡"}
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div
-          style={{
-            height: "6px",
-            background: "var(--signal-track)",
-            borderRadius: "3px",
-            overflow: "hidden",
-            marginBottom: "1.5rem",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${step === "completed" ? 100 : step === "failed" ? 100 : percent}%`,
-              background: step === "failed" ? "var(--danger)" : "linear-gradient(90deg, var(--accent-secondary), #ec4899)",
-              boxShadow: step === "failed" ? "none" : "0 0 10px var(--accent-secondary-glow)",
-              borderRadius: "3px",
-              transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}
-          />
+        <div className="recovery-progress">
+          <div className={`recovery-progress-fill ${step === "failed" ? "is-failed" : ""}`} style={fillStyle} />
         </div>
 
-        {/* Steps List */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.6rem",
-            textAlign: "left",
-            marginBottom: "1.5rem",
-            maxHeight: "220px",
-            overflowY: "auto",
-            paddingRight: "4px",
-          }}
-        >
+        <div className="recovery-steps">
           {STEPS_CONFIG.map((cfg, index) => {
             const isDone = activeIndex > index || step === "completed";
             const isActive = activeIndex === index && step !== "failed";
             const isErr = step === "failed" && activeIndex === index;
+            const stepClass = isActive ? "is-active" : isDone ? "is-done" : "is-pending";
 
             return (
-              <div
-                key={cfg.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  opacity: isActive ? 1 : isDone ? 0.8 : 0.4,
-                  fontSize: "0.85rem",
-                  transition: "opacity 0.2s ease",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  background: isActive ? "rgba(139, 92, 246, 0.08)" : "transparent",
-                  border: isActive ? "1px solid rgba(139, 92, 246, 0.15)" : "1px solid transparent",
-                }}
-              >
-                <div style={{ minWidth: "18px" }}>
+              <div key={cfg.id} className={`recovery-step ${stepClass}`}>
+                <div className="recovery-step-icon">
                   {isDone ? (
-                    <span style={{ color: "var(--success)" }}>✓</span>
+                    <span className="text-success">✓</span>
                   ) : isActive ? (
-                    <span
-                      style={{
-                        display: "inline-block",
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        background: "var(--accent-secondary)",
-                        boxShadow: "0 0 8px var(--accent-secondary)",
-                        animation: "pulse 1.5s infinite",
-                      }}
-                    />
+                    <span className="recovery-pulse" />
                   ) : isErr ? (
-                    <span style={{ color: "var(--danger)" }}>✗</span>
+                    <span className="text-danger">✗</span>
                   ) : (
-                    <span style={{ color: "var(--text-dim)" }}>○</span>
+                    <span className="text-dim">○</span>
                   )}
                 </div>
-                <span
-                  style={{
-                    color: isActive ? "var(--accent-secondary)" : isDone ? "var(--text-bright)" : "var(--text-dim)",
-                    fontWeight: isActive ? 600 : 400,
-                  }}
-                >
-                  {cfg.label}
-                </span>
+                <span className="recovery-step-label">{cfg.label}</span>
               </div>
             );
           })}
         </div>
 
-        {/* Live log / message box */}
-        <div
-          style={{
-            background: "var(--surface-inset)",
-            border: "1px solid var(--border)",
-            borderRadius: "6px",
-            padding: "10px 12px",
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.75rem",
-            color: step === "failed" ? "var(--danger)" : "var(--accent-secondary)",
-            textAlign: "left",
-            marginBottom: "1.5rem",
-            minHeight: "45px",
-            maxHeight: "100px",
-            overflowY: "auto",
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: "4px", opacity: 0.8 }}>STATUS:</div>
+        <div className={`recovery-status ${step === "failed" ? "is-failed" : ""}`}>
+          <div className="recovery-status-label">STATUS:</div>
           <div>{message}</div>
           {logs.slice(-2).map((log, idx) => (
-            <div key={idx} style={{ opacity: 0.5, fontSize: "0.7rem", marginTop: "2px" }}>
+            <div key={idx} className="recovery-status-log">
               {log}
             </div>
           ))}
         </div>
 
-        {/* Footer Actions */}
-        <div style={{ display: "flex", gap: "0.8rem", width: "100%" }}>
-          {step === "completed" || step === "failed" ? (
-            <button
-              onClick={dismissRecovery}
-              className="btn btn-primary"
-              style={{
-                width: "100%",
-                background: "linear-gradient(135deg, var(--accent-secondary), #6d28d9)",
-                borderColor: "var(--accent-secondary)",
-                boxShadow: "0 4px 12px var(--accent-secondary-glow)",
-              }}
-            >
+        <div className="recovery-actions">
+          {isTerminal ? (
+            <button onClick={dismissRecovery} className="btn btn-primary btn-recovery-dismiss">
               Dismiss
             </button>
           ) : (
-            <button
-              onClick={onAbort}
-              className="btn btn-secondary"
-              style={{
-                width: "100%",
-                background: "rgba(239, 68, 68, 0.1)",
-                borderColor: "rgba(239, 68, 68, 0.3)",
-                color: "var(--danger)",
-              }}
-            >
+            <button onClick={onAbort} className="btn btn-secondary btn-recovery-abort">
               Abort / Cancel Sequence
             </button>
           )}

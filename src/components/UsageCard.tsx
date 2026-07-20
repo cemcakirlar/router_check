@@ -1,14 +1,8 @@
-import { FormatBytes, formatTime } from '../utils/format';
-import { useRouterState } from '../context/RouterStateContext';
+import { FormatBytes, formatTime } from "../utils/format";
+import { useRouterState } from "../context/RouterStateContext";
 
 export default function UsageCard() {
-  const {
-    monthlyRx,
-    monthlyTx,
-    monthlyTime,
-    provider,
-    networkType,
-  } = useRouterState();
+  const { monthlyRx, monthlyTx, monthlyTime, provider, networkType } = useRouterState();
 
   const totalUsage = (monthlyRx || 0) + (monthlyTx || 0);
 
@@ -18,37 +12,25 @@ export default function UsageCard() {
       <div className="big-value">
         <FormatBytes bytes={totalUsage} />
       </div>
-      <div className="sub-value">
-        {formatTime(monthlyTime)}
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          gap: '1rem',
-          marginTop: '0.8rem',
-          borderTop: '1px solid var(--border)',
-          paddingTop: '0.4rem',
-        }}
-      >
-        <div style={{ flex: 1 }}>
+      <div className="sub-value">{formatTime(monthlyTime)}</div>
+      <div className="usage-split">
+        <div className="flex-1">
           <div className="sub-value">Monthly DL</div>
-          <div style={{ color: 'var(--text-main)', fontWeight: 700 }}>
+          <div className="text-main font-strong">
             <FormatBytes bytes={monthlyRx} />
           </div>
         </div>
-        <div style={{ flex: 1 }}>
+        <div className="flex-1">
           <div className="sub-value">Monthly UL</div>
-          <div style={{ color: 'var(--text-main)', fontWeight: 700 }}>
+          <div className="text-main font-strong">
             <FormatBytes bytes={monthlyTx} />
           </div>
         </div>
       </div>
-      <div style={{ marginTop: '0.8rem' }} className="sub-value">
-        Provider:{' '}
-        <span style={{ color: 'var(--text-main)' }}>{provider || '--'}</span>
-        <span style={{ margin: '0 0.4rem', opacity: 0.3 }}>|</span>
-        Type:{' '}
-        <span style={{ color: 'var(--text-main)' }}>{networkType || '--'}</span>
+      <div className="sub-value mt-sm">
+        Provider: <span className="text-main">{provider || "--"}</span>
+        <span className="meta-sep">|</span>
+        Type: <span className="text-main">{networkType || "--"}</span>
       </div>
     </div>
   );
