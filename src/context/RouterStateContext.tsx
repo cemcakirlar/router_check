@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { AppConfig, Station, StaticIp, RouterData } from "../types";
+import { AppConfig, Station, StaticIp, RouterData, ThemeMode } from "../types";
+import { applyThemeMode, normalizeThemeMode } from "../utils/theme";
 import { ChangeLogEntry } from "../components/LogsCard";
 import { RecoveryStep } from "../components/RecoveryOverlay";
 
@@ -121,6 +122,7 @@ export interface RouterStateContextType {
   autoRefreshInterval: number;
   autoRefreshOnStartup: boolean;
   mainWindowOnStartup: string;
+  themeMode: ThemeMode;
 
   // Overlay states
   isSettingsOpen: boolean;
@@ -179,7 +181,14 @@ export interface RouterStateContextType {
   handleCellRecovery: () => Promise<void>;
   handleAbortRecovery: () => void;
   dismissRecovery: () => void;
-  handleSaveSettings: (ip: string, pass: string, interval: number, refreshOnStartup: boolean, windowOnStartup: string) => Promise<void>;
+  handleSaveSettings: (
+    ip: string,
+    pass: string,
+    interval: number,
+    refreshOnStartup: boolean,
+    windowOnStartup: string,
+    themeMode: ThemeMode
+  ) => Promise<void>;
 }
 
 const RouterStateContext = createContext<RouterStateContextType | undefined>(undefined);
@@ -206,6 +215,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(2000);
   const [autoRefreshOnStartup, setAutoRefreshOnStartup] = useState(true);
   const [mainWindowOnStartup, setMainWindowOnStartup] = useState("visible");
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
 
   // Overlay states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -793,12 +803,20 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
     refresh();
   };
 
-  const handleSaveSettings = async (ip: string, pass: string, interval: number, refreshOnStartup: boolean, windowOnStartup: string) => {
+  const handleSaveSettings = async (
+    ip: string,
+    pass: string,
+    interval: number,
+    refreshOnStartup: boolean,
+    windowOnStartup: string,
+    nextThemeMode: ThemeMode
+  ) => {
     const trimmedIp = ip.trim();
     if (!trimmedIp) {
       showToast("Router IP is required", "error");
       return;
     }
+    const normalizedTheme = normalizeThemeMode(nextThemeMode);
     try {
       const config = {
         router_ip: trimmedIp,
@@ -806,6 +824,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
         auto_refresh_interval: interval,
         auto_refresh_on_startup: refreshOnStartup,
         main_window_on_startup: windowOnStartup,
+        theme_mode: normalizedTheme,
       };
       await fnCall("save_config", { config });
 
@@ -817,6 +836,8 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       setAutoRefreshInterval(interval);
       setAutoRefreshOnStartup(refreshOnStartup);
       setMainWindowOnStartup(windowOnStartup);
+      setThemeMode(normalizedTheme);
+      applyThemeMode(normalizedTheme);
       setAutoRefresh(refreshOnStartup);
       setIsSettingsOpen(false);
       showToast("Configuration saved!", "success");
@@ -851,10 +872,14 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
           setAutoRefreshInterval(config.auto_refresh_interval);
           setAutoRefreshOnStartup(config.auto_refresh_on_startup);
           setMainWindowOnStartup(config.main_window_on_startup);
+          const loadedTheme = normalizeThemeMode(config.theme_mode);
+          setThemeMode(loadedTheme);
+          applyThemeMode(loadedTheme);
           setAutoRefresh(config.auto_refresh_on_startup);
         }
       } catch (e) {
         console.error("Failed to load configuration:", e);
+        applyThemeMode("system");
       }
     };
 
@@ -977,6 +1002,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
         autoRefreshInterval,
         autoRefreshOnStartup,
         mainWindowOnStartup,
+        themeMode,
         isSettingsOpen,
         setIsSettingsOpen,
         isBootstrapOpen,

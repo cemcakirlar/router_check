@@ -316,11 +316,12 @@ pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Resul
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
     println!(
-        "⚙️ Config saved successfully: router_ip={}, auto_refresh_interval={}, auto_refresh_on_startup={}, main_window_on_startup={}",
+        "⚙️ Config saved successfully: router_ip={}, auto_refresh_interval={}, auto_refresh_on_startup={}, main_window_on_startup={}, theme_mode={}",
         config.router_ip,
         config.auto_refresh_interval,
         config.auto_refresh_on_startup,
-        config.main_window_on_startup
+        config.main_window_on_startup,
+        config.theme_mode
     );
     Ok(())
 }

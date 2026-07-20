@@ -115,7 +115,7 @@ export default function InfoCard() {
                   justifyContent: 'center',
                   background: 'rgba(239, 68, 68, 0.12)',
                   borderColor: 'rgba(239, 68, 68, 0.35)',
-                  color: '#f87171',
+                  color: 'var(--danger)',
                   boxShadow: '0 4px 10px rgba(239, 68, 68, 0.15)',
                   padding: '0.5rem',
                 }}
@@ -133,7 +133,7 @@ export default function InfoCard() {
                   justifyContent: 'center',
                   background: 'rgba(16, 185, 129, 0.12)',
                   borderColor: 'rgba(16, 185, 129, 0.35)',
-                  color: '#34d399',
+                  color: 'var(--success)',
                   boxShadow: '0 4px 10px rgba(16, 185, 129, 0.15)',
                   padding: '0.5rem',
                 }}
@@ -152,21 +152,21 @@ export default function InfoCard() {
                 className="refresh-btn"
                 style={{
                   flex: 1,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                  background: 'var(--surface-control)',
+                  borderColor: 'var(--control-border)',
                   color: isPppDisconnected ? 'var(--text-bright)' : 'var(--text-dim)',
                   cursor: isPppDisconnected ? 'pointer' : 'not-allowed',
                   outline: 'none',
                   padding: '0.5rem',
                 }}
               >
-                <option value="NETWORK_auto" style={{ background: '#1f2937', color: 'white' }}>
+                <option value="NETWORK_auto" style={{ background: 'var(--option-bg)', color: 'var(--option-color)' }}>
                   Auto Network
                 </option>
-                <option value="Only_LTE" style={{ background: '#1f2937', color: 'white' }}>
+                <option value="Only_LTE" style={{ background: 'var(--option-bg)', color: 'var(--option-color)' }}>
                   Only LTE
                 </option>
-                <option value="Only_WCDMA" style={{ background: '#1f2937', color: 'white' }}>
+                <option value="Only_WCDMA" style={{ background: 'var(--option-bg)', color: 'var(--option-color)' }}>
                   Only WCDMA
                 </option>
               </select>
@@ -176,8 +176,8 @@ export default function InfoCard() {
                 disabled={!isPppDisconnected || isSettingBearer}
                 className="refresh-btn"
                 style={{
-                  background: isPppDisconnected ? 'rgba(59, 130, 246, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                  borderColor: isPppDisconnected ? 'rgba(59, 130, 246, 0.35)' : 'rgba(255, 255, 255, 0.05)',
+                  background: isPppDisconnected ? 'rgba(59, 130, 246, 0.12)' : 'var(--surface-muted)',
+                  borderColor: isPppDisconnected ? 'rgba(59, 130, 246, 0.35)' : 'var(--border)',
                   color: isPppDisconnected ? '#60a5fa' : 'var(--text-dim)',
                   boxShadow: isPppDisconnected ? '0 4px 10px rgba(59, 130, 246, 0.15)' : 'none',
                   cursor: isPppDisconnected ? 'pointer' : 'not-allowed',

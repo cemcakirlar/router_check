@@ -1,50 +1,22 @@
-import Sparkline from './Sparkline';
-import { useRouterState } from '../context/RouterStateContext';
+import Sparkline from "./Sparkline";
+import { useRouterState } from "../context/RouterStateContext";
 
-function Grade({
-  value,
-  thresholds,
-}: {
-  value: number | null;
-  thresholds: { excellent: number; good: number; fair: number };
- }) {
+function Grade({ value, thresholds }: { value: number | null; thresholds: { excellent: number; good: number; fair: number } }) {
   if (value === null || isNaN(value)) return <span>--</span>;
   if (value >= thresholds.excellent) {
-    return (
-      <span style={{ color: 'var(--success)', textShadow: '0 0 10px var(--success-glow)' }}>
-        Excellent
-      </span>
-    );
+    return <span style={{ color: "var(--success)", textShadow: "0 0 10px var(--success-glow)" }}>Excellent</span>;
   }
   if (value >= thresholds.good) {
-    return (
-      <span style={{ color: 'var(--accent-primary)', textShadow: '0 0 10px var(--accent-primary-glow)' }}>
-        Good
-      </span>
-    );
+    return <span style={{ color: "var(--accent-primary)", textShadow: "0 0 10px var(--accent-primary-glow)" }}>Good</span>;
   }
   if (value >= thresholds.fair) {
-    return <span style={{ color: 'var(--warning)' }}>Fair</span>;
+    return <span style={{ color: "var(--warning)" }}>Fair</span>;
   }
-  return (
-    <span style={{ color: 'var(--danger)', textShadow: '0 0 10px var(--danger-glow)' }}>
-      Poor
-    </span>
-  );
+  return <span style={{ color: "var(--danger)", textShadow: "0 0 10px var(--danger-glow)" }}>Poor</span>;
 }
 
 export default function SignalCard() {
-  const {
-    rsrp,
-    sinr,
-    cellId,
-    earfcn,
-    rsrpHistory,
-    sinrHistory,
-    isConnected,
-    handleCellRecovery,
-    recoveryStep,
-  } = useRouterState();
+  const { rsrp, sinr, cellId, earfcn, rsrpHistory, sinrHistory, isConnected, handleCellRecovery, recoveryStep } = useRouterState();
 
   const isRecovering = recoveryStep !== "idle";
 
@@ -54,7 +26,7 @@ export default function SignalCard() {
 
   // Stats calculation
   const getRsrpStats = () => {
-    if (rsrpHistory.length === 0) return { min: '--', max: '--', avg: '--' };
+    if (rsrpHistory.length === 0) return { min: "--", max: "--", avg: "--" };
     const min = Math.min(...rsrpHistory);
     const max = Math.max(...rsrpHistory);
     const avg = rsrpHistory.reduce((a, b) => a + b, 0) / rsrpHistory.length;
@@ -66,7 +38,7 @@ export default function SignalCard() {
   };
 
   const getSinrStats = () => {
-    if (sinrHistory.length === 0) return { min: '--', max: '--', avg: '--' };
+    if (sinrHistory.length === 0) return { min: "--", max: "--", avg: "--" };
     const min = Math.min(...sinrHistory);
     const max = Math.max(...sinrHistory);
     const avg = sinrHistory.reduce((a, b) => a + b, 0) / sinrHistory.length;
@@ -93,13 +65,13 @@ export default function SignalCard() {
                 {rsrp} <small className="unit">dBm</small>
               </>
             ) : (
-              '--'
+              "--"
             )}
           </div>
           <div className="signal-meter">
             <div className="signal-fill" style={{ width: `${rsrpPct}%` }} />
           </div>
-          <div style={{ fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: 600 }}>
+          <div style={{ fontSize: "0.75rem", marginTop: "0.4rem", fontWeight: 600 }}>
             <Grade value={rsrp} thresholds={{ excellent: -80, good: -90, fair: -105 }} />
           </div>
           <div className="sparkline-container">
@@ -130,13 +102,13 @@ export default function SignalCard() {
                 {sinr} <small className="unit">dB</small>
               </>
             ) : (
-              '--'
+              "--"
             )}
           </div>
           <div className="signal-meter">
             <div className="signal-fill" style={{ width: `${sinrPct}%` }} />
           </div>
-          <div style={{ fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: 600 }}>
+          <div style={{ fontSize: "0.75rem", marginTop: "0.4rem", fontWeight: 600 }}>
             <Grade value={sinr} thresholds={{ excellent: 15, good: 10, fair: 5 }} />
           </div>
           <div className="sparkline-container">
@@ -158,40 +130,34 @@ export default function SignalCard() {
           </div>
         </div>
       </div>
-      <div style={{ marginTop: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <div style={{ marginTop: "0.8rem", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="sub-value">
-          Cell ID:{' '}
-          <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>
-            {cellId || '--'}
-          </span>
+          Cell ID: <span style={{ color: "var(--text-main)", fontWeight: 700 }}>{cellId || "--"}</span>
         </div>
         <div className="sub-value">
-          EARFCN:{' '}
-          <span style={{ color: 'var(--text-main)', fontWeight: 700 }}>
-            {earfcn || '--'}
-          </span>
+          EARFCN: <span style={{ color: "var(--text-main)", fontWeight: 700 }}>{earfcn || "--"}</span>
         </div>
       </div>
 
       {isConnected && (
-        <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.04)', paddingTop: '1rem' }}>
+        <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.04)", paddingTop: "1rem" }}>
           <button
             id="cellRecoveryBtn"
             onClick={handleCellRecovery}
             disabled={isRecovering}
             className="refresh-btn"
             style={{
-              width: '100%',
-              justifyContent: 'center',
-              background: 'rgba(139, 92, 246, 0.12)',
-              borderColor: 'rgba(139, 92, 246, 0.35)',
-              color: '#a78bfa',
-              boxShadow: '0 4px 10px rgba(139, 92, 246, 0.15)',
-              cursor: isRecovering ? 'not-allowed' : 'pointer',
-              padding: '0.6rem',
+              width: "100%",
+              justifyContent: "center",
+              background: "rgba(139, 92, 246, 0.12)",
+              borderColor: "rgba(139, 92, 246, 0.35)",
+              color: "var(--accent-secondary)",
+              boxShadow: "0 4px 10px var(--accent-secondary-glow)",
+              cursor: isRecovering ? "not-allowed" : "pointer",
+              padding: "0.6rem",
             }}
           >
-            {isRecovering ? '⚡ RECOVERING...' : '⚡ RECOVER CELL'}
+            {isRecovering ? "⚡ RECOVERING..." : "⚡ RECOVER CELL"}
           </button>
         </div>
       )}

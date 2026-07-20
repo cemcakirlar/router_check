@@ -1,9 +1,12 @@
+export type ThemeMode = "system" | "light" | "dark";
+
 export interface AppConfig {
   router_ip: string;
   router_password: string;
   auto_refresh_interval: number;
   auto_refresh_on_startup: boolean;
   main_window_on_startup: string;
+  theme_mode?: ThemeMode;
 }
 
 export interface Station {

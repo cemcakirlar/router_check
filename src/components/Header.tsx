@@ -17,8 +17,8 @@ export default function Header() {
   } = useRouterState();
 
   return (
-    <header>
-      <div data-tauri-drag-region style={{ display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "auto", cursor: "default" }}>
+    <header className="flex w-full items-center justify-between">
+      <div data-tauri-drag-region className="flex items-center gap-3" style={{ pointerEvents: "auto", cursor: "default" }}>
         <img
           data-tauri-drag-region
           src={logoUrl}
@@ -33,7 +33,7 @@ export default function Header() {
         />
         <div data-tauri-drag-region style={{ pointerEvents: "none" }}>
           <h1 data-tauri-drag-region>ROUTER CHECK</h1>
-          <div data-tauri-drag-region style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div data-tauri-drag-region className="flex items-center gap-3">
             <p data-tauri-drag-region style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
               Live Diagnostic Dashboard
             </p>
@@ -42,9 +42,9 @@ export default function Header() {
       </div>
 
       {/* Draggable spacer in the middle */}
-      <div data-tauri-drag-region style={{ flex: 1, alignSelf: "stretch", height: "100%", minWidth: "20px", cursor: "default" }} />
+      <div data-tauri-drag-region className="min-w-5 h-full flex-1 self-stretch" style={{ cursor: "default" }} />
 
-      <div style={{ display: "flex", gap: "0.8rem", alignItems: "center", position: "relative", zIndex: 10 }}>
+      <div className="relative z-10 flex items-center gap-3">
         {/* Router API Connection Status */}
         <div id="connectionStatus" className="status-badge" title="Router API connection status">
           <div className={`status-dot ${isConnected ? "online" : ""}`} />
@@ -52,7 +52,7 @@ export default function Header() {
         </div>
 
         {/* Polling & Refresh Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255, 255, 255, 0.02)", padding: "0.25rem 0.5rem", borderRadius: "0.5rem", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-1 rounded-lg border border-(--border) bg-(--surface-muted) px-2 py-1">
           {/* Last Update timestamp */}
           {lastUpdate && (
             <span
@@ -76,9 +76,9 @@ export default function Header() {
             title={autoRefresh ? "Pause Auto-poll" : "Resume Auto-poll"}
             style={{
               padding: "0.3rem 0.5rem",
-              background: autoRefresh ? "rgba(16, 185, 129, 0.12)" : "rgba(255, 255, 255, 0.04)",
+              background: autoRefresh ? "rgba(16, 185, 129, 0.12)" : "var(--surface-subtle)",
               borderColor: autoRefresh ? "rgba(16, 185, 129, 0.25)" : "var(--border)",
-              color: autoRefresh ? "#34d399" : "var(--text-dim)",
+              color: autoRefresh ? "var(--success)" : "var(--text-dim)",
             }}
           >
             {autoRefresh ? "⏸ Pause" : "▶ Auto"}
@@ -96,7 +96,7 @@ export default function Header() {
                 padding: "0.3rem 0.6rem",
                 background: "linear-gradient(135deg, var(--accent-primary), #3b82f6)",
                 border: "none",
-                color: "#030712",
+                color: "var(--btn-on-accent)",
                 boxShadow: "0 2px 8px var(--accent-primary-glow)",
               }}
             >
@@ -106,7 +106,7 @@ export default function Header() {
         </div>
 
         {/* Administration / Settings */}
-        <div style={{ display: "flex", gap: "0.4rem" }}>
+        <div className="flex gap-1">
           <button
             id="settingsBtn"
             onClick={() => setIsSettingsOpen(true)}
@@ -137,7 +137,7 @@ export default function Header() {
                 padding: "0.45rem 0.75rem",
                 background: "rgba(16, 185, 129, 0.12)",
                 borderColor: "rgba(16, 185, 129, 0.35)",
-                color: "#34d399",
+                color: "var(--success)",
               }}
             >
               {isLoggingIn ? "Login..." : "Login"}

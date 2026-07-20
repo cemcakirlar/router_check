@@ -34,11 +34,11 @@ export default function App() {
               style={{
                 display: "block",
                 padding: "8px 12px",
-                background: "rgba(0,0,0,0.3)",
+                background: "var(--surface-inset)",
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: "6px",
                 marginTop: "8px",
-                color: "#58a6ff",
+                color: "var(--accent-primary)",
                 fontFamily: "monospace",
               }}
             >
@@ -87,10 +87,10 @@ function RouterDashboard() {
       <RecoveryOverlay />
 
       {/* Main Container */}
-      <div className="w-[95%] max-w-[1600px] mx-auto animate-[fadeIn_0.8s_ease-out]">
+      <div className="container">
         <Header />
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
           {/* Signal Card */}
           <SignalCard />
 

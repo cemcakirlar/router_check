@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouterState } from "../context/RouterStateContext";
+import { ThemeMode } from "../types";
+import { applyThemeMode, normalizeThemeMode } from "../utils/theme";
 
 export default function SettingsModal() {
   const {
@@ -10,6 +12,7 @@ export default function SettingsModal() {
     autoRefreshInterval: initialAutoRefreshInterval,
     autoRefreshOnStartup: initialAutoRefreshOnStartup,
     mainWindowOnStartup: initialMainWindowOnStartup,
+    themeMode: initialThemeMode,
     handleSaveSettings: onSave,
   } = useRouterState();
 
@@ -18,6 +21,7 @@ export default function SettingsModal() {
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(initialAutoRefreshInterval);
   const [autoRefreshOnStartup, setAutoRefreshOnStartup] = useState(initialAutoRefreshOnStartup);
   const [mainWindowOnStartup, setMainWindowOnStartup] = useState(initialMainWindowOnStartup);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
   const [isSaving, setIsSaving] = useState(false);
   const [ipError, setIpError] = useState("");
 
@@ -29,9 +33,25 @@ export default function SettingsModal() {
       setAutoRefreshInterval(initialAutoRefreshInterval);
       setAutoRefreshOnStartup(initialAutoRefreshOnStartup);
       setMainWindowOnStartup(initialMainWindowOnStartup);
+      setThemeMode(initialThemeMode);
       setIpError("");
     }
-  }, [isSettingsOpen, initialIp, initialPassword, initialAutoRefreshInterval, initialAutoRefreshOnStartup, initialMainWindowOnStartup]);
+  }, [
+    isSettingsOpen,
+    initialIp,
+    initialPassword,
+    initialAutoRefreshInterval,
+    initialAutoRefreshOnStartup,
+    initialMainWindowOnStartup,
+    initialThemeMode,
+  ]);
+
+  // Restore saved theme if the modal closes without saving
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      applyThemeMode(initialThemeMode);
+    }
+  }, [isSettingsOpen, initialThemeMode]);
 
   const isValidRouterHost = (host: string): boolean => {
     const trimmed = host.trim();
@@ -53,6 +73,12 @@ export default function SettingsModal() {
     return /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(hostOnly);
   };
 
+  const handleThemeChange = (next: ThemeMode) => {
+    const normalized = normalizeThemeMode(next);
+    setThemeMode(normalized);
+    applyThemeMode(normalized);
+  };
+
   const handleSave = async () => {
     if (!isValidRouterHost(ip)) {
       setIpError("Enter a valid IPv4 address or hostname");
@@ -61,7 +87,7 @@ export default function SettingsModal() {
     setIpError("");
     setIsSaving(true);
     try {
-      await onSave(ip.trim(), password, autoRefreshInterval, autoRefreshOnStartup, mainWindowOnStartup);
+      await onSave(ip.trim(), password, autoRefreshInterval, autoRefreshOnStartup, mainWindowOnStartup, themeMode);
     } finally {
       setIsSaving(false);
     }
@@ -138,12 +164,27 @@ export default function SettingsModal() {
             <select
               id="settingsMainWindowOnStartup"
               className="form-input"
-              style={{ background: "rgba(0, 0, 0, 0.4)", color: "var(--text-main)", cursor: "pointer" }}
+              style={{ background: "var(--surface-inset-strong)", color: "var(--text-main)", cursor: "pointer" }}
               value={mainWindowOnStartup}
               onChange={(e) => setMainWindowOnStartup(e.target.value)}
             >
               <option value="visible">Visible</option>
               <option value="hidden">Hidden</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="settingsThemeMode">Theme</label>
+            <select
+              id="settingsThemeMode"
+              className="form-input"
+              style={{ background: "var(--surface-inset-strong)", color: "var(--text-main)", cursor: "pointer" }}
+              value={themeMode}
+              onChange={(e) => handleThemeChange(normalizeThemeMode(e.target.value))}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
             </select>
           </div>
 

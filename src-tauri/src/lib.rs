@@ -11,6 +11,12 @@ pub struct AppConfig {
     pub auto_refresh_interval: u32,
     pub auto_refresh_on_startup: bool,
     pub main_window_on_startup: String,
+    #[serde(default = "default_theme_mode")]
+    pub theme_mode: String,
+}
+
+fn default_theme_mode() -> String {
+    "system".to_string()
 }
 
 impl Default for AppConfig {
@@ -21,6 +27,7 @@ impl Default for AppConfig {
             auto_refresh_interval: 2000,
             auto_refresh_on_startup: true,
             main_window_on_startup: "visible".to_string(),
+            theme_mode: default_theme_mode(),
         }
     }
 }

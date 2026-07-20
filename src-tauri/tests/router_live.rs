@@ -109,6 +109,7 @@ fn build_state(ip: &str, password: &str) -> AppState {
         auto_refresh_interval: 2000,
         auto_refresh_on_startup: false,
         main_window_on_startup: "visible".to_string(),
+        theme_mode: "system".to_string(),
     };
     create_app_state(config, PathBuf::from("/tmp/router-check-e2e-config.json"))
         .expect("failed to create AppState")

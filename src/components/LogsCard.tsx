@@ -70,7 +70,7 @@ export default function LogsCard() {
             value={filterField}
             onChange={(e) => setFilterField(e.target.value)}
             style={{
-              background: "rgba(0, 0, 0, 0.3)",
+              background: "var(--surface-inset)",
               border: "1px solid var(--border)",
               borderRadius: "6px",
               padding: "4px 8px",
@@ -118,11 +118,11 @@ export default function LogsCard() {
           marginTop: "10px",
           border: "1px solid var(--border)",
           borderRadius: "8px",
-          background: "rgba(0, 0, 0, 0.15)",
+          background: "var(--sparkline-bg)",
         }}
       >
         <table style={{ margin: 0 }}>
-          <thead style={{ position: "sticky", top: 0, background: "#111827", zIndex: 1 }}>
+          <thead style={{ position: "sticky", top: 0, background: "var(--table-header-bg)", zIndex: 1 }}>
             <tr>
               <th style={{ width: "180px" }}>Timestamp</th>
               <th style={{ width: "120px" }}>Parameter</th>
@@ -154,7 +154,7 @@ export default function LogsCard() {
                                 ? "rgba(16, 185, 129, 0.15)"
                                 : log.field === "SINR"
                                   ? "rgba(245, 158, 11, 0.15)"
-                                  : "rgba(255, 255, 255, 0.08)",
+                                  : "var(--surface-hover)",
                         color:
                           log.field === "Cell ID"
                             ? "var(--accent-primary)"

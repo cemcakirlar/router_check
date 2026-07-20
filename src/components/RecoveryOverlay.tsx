@@ -1,4 +1,4 @@
-import { useRouterState } from '../context/RouterStateContext';
+import { useRouterState } from "../context/RouterStateContext";
 
 export type RecoveryStep =
   | "idle"
@@ -42,10 +42,7 @@ export default function RecoveryOverlay() {
   if (step === "completed") activeIndex = STEPS_CONFIG.length;
   if (step === "failed") activeIndex = STEPS_CONFIG.length;
 
-  const percent = Math.min(
-    100,
-    Math.round(((activeIndex === -1 ? 0 : activeIndex) / STEPS_CONFIG.length) * 100)
-  );
+  const percent = Math.min(100, Math.round(((activeIndex === -1 ? 0 : activeIndex) / STEPS_CONFIG.length) * 100));
 
   return (
     <div
@@ -54,7 +51,7 @@ export default function RecoveryOverlay() {
       className="fullscreen-overlay active"
       style={{
         zIndex: 9999,
-        background: "rgba(10, 10, 12, 0.85)",
+        background: "var(--overlay-bg)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         transition: "all 0.3s ease",
@@ -66,9 +63,9 @@ export default function RecoveryOverlay() {
           maxWidth: "540px",
           width: "90%",
           padding: "2rem",
-          background: "rgba(20, 20, 25, 0.75)",
+          background: "var(--overlay-card-bg)",
           border: "1px solid rgba(139, 92, 246, 0.25)",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(139, 92, 246, 0.15)",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.25), 0 0 30px rgba(139, 92, 246, 0.15)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
@@ -77,7 +74,7 @@ export default function RecoveryOverlay() {
               className="overlay-title"
               style={{
                 fontSize: "1.3rem",
-                color: "#a78bfa",
+                color: "var(--accent-secondary)",
                 letterSpacing: "1px",
                 margin: 0,
                 textAlign: "left",
@@ -103,7 +100,7 @@ export default function RecoveryOverlay() {
         <div
           style={{
             height: "6px",
-            background: "rgba(255,255,255,0.06)",
+            background: "var(--signal-track)",
             borderRadius: "3px",
             overflow: "hidden",
             marginBottom: "1.5rem",
@@ -114,8 +111,8 @@ export default function RecoveryOverlay() {
             style={{
               height: "100%",
               width: `${step === "completed" ? 100 : step === "failed" ? 100 : percent}%`,
-              background: step === "failed" ? "var(--danger)" : "linear-gradient(90deg, #8b5cf6, #ec4899)",
-              boxShadow: step === "failed" ? "none" : "0 0 10px rgba(139, 92, 246, 0.5)",
+              background: step === "failed" ? "var(--danger)" : "linear-gradient(90deg, var(--accent-secondary), #ec4899)",
+              boxShadow: step === "failed" ? "none" : "0 0 10px var(--accent-secondary-glow)",
               borderRadius: "3px",
               transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             }}
@@ -158,7 +155,7 @@ export default function RecoveryOverlay() {
               >
                 <div style={{ minWidth: "18px" }}>
                   {isDone ? (
-                    <span style={{ color: "#34d399" }}>✓</span>
+                    <span style={{ color: "var(--success)" }}>✓</span>
                   ) : isActive ? (
                     <span
                       style={{
@@ -166,8 +163,8 @@ export default function RecoveryOverlay() {
                         width: "8px",
                         height: "8px",
                         borderRadius: "50%",
-                        background: "#a78bfa",
-                        boxShadow: "0 0 8px #a78bfa",
+                        background: "var(--accent-secondary)",
+                        boxShadow: "0 0 8px var(--accent-secondary)",
                         animation: "pulse 1.5s infinite",
                       }}
                     />
@@ -179,7 +176,7 @@ export default function RecoveryOverlay() {
                 </div>
                 <span
                   style={{
-                    color: isActive ? "#d8b4fe" : isDone ? "var(--text-bright)" : "var(--text-dim)",
+                    color: isActive ? "var(--accent-secondary)" : isDone ? "var(--text-bright)" : "var(--text-dim)",
                     fontWeight: isActive ? 600 : 400,
                   }}
                 >
@@ -193,13 +190,13 @@ export default function RecoveryOverlay() {
         {/* Live log / message box */}
         <div
           style={{
-            background: "rgba(0,0,0,0.3)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: "var(--surface-inset)",
+            border: "1px solid var(--border)",
             borderRadius: "6px",
             padding: "10px 12px",
             fontFamily: "var(--font-mono)",
             fontSize: "0.75rem",
-            color: step === "failed" ? "#f87171" : "#a78bfa",
+            color: step === "failed" ? "var(--danger)" : "var(--accent-secondary)",
             textAlign: "left",
             marginBottom: "1.5rem",
             minHeight: "45px",
@@ -224,9 +221,9 @@ export default function RecoveryOverlay() {
               className="btn btn-primary"
               style={{
                 width: "100%",
-                background: "linear-gradient(135deg, #8b5cf6, #6d28d9)",
-                borderColor: "#a78bfa",
-                boxShadow: "0 4px 12px rgba(139, 92, 246, 0.3)",
+                background: "linear-gradient(135deg, var(--accent-secondary), #6d28d9)",
+                borderColor: "var(--accent-secondary)",
+                boxShadow: "0 4px 12px var(--accent-secondary-glow)",
               }}
             >
               Dismiss
@@ -239,7 +236,7 @@ export default function RecoveryOverlay() {
                 width: "100%",
                 background: "rgba(239, 68, 68, 0.1)",
                 borderColor: "rgba(239, 68, 68, 0.3)",
-                color: "#ef4444",
+                color: "var(--danger)",
               }}
             >
               Abort / Cancel Sequence
