@@ -1,6 +1,6 @@
 [package]
 name = "router-check"
-version = "1.0.0"
+version = "1.0.1"
 description = "ZTE Router Dashboard"
 authors = ["Cem Cakirlar"]
 edition = "2021"

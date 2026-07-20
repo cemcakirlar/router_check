@@ -1,6 +1,6 @@
 {
   "productName": "Router Check",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.router.check",
   "build": {
     "beforeDevCommand": "npm run vite-dev",

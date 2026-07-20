@@ -649,6 +649,14 @@ body:has(.fullscreen-overlay.active) {
   width: 100%;
 }
 
+.settings-app-version {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
 .btn {
   flex: 1;
   padding: 0.65rem;

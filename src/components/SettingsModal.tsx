@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { useRouterState } from "../context/RouterStateContext";
 import { ThemeMode } from "../types";
 import { applyThemeMode, normalizeThemeMode } from "../utils/theme";
@@ -24,6 +25,21 @@ export default function SettingsModal() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(initialThemeMode);
   const [isSaving, setIsSaving] = useState(false);
   const [ipError, setIpError] = useState("");
+  const [appVersion, setAppVersion] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    getVersion()
+      .then((version) => {
+        if (!cancelled) setAppVersion(version);
+      })
+      .catch(() => {
+        if (!cancelled) setAppVersion("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (isSettingsOpen) {
@@ -185,6 +201,8 @@ export default function SettingsModal() {
               {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
+
+          <p className="settings-app-version">Router Check {appVersion ? `v${appVersion}` : "—"}</p>
         </div>
       </div>
     </div>
