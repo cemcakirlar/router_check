@@ -35,8 +35,8 @@ pub async fn verify_login_status(state: &AppState) -> Result<bool, String> {
 }
 
 /// Reads the ZTE goform POST verdict from `make_request`'s wrapper (`_orig.result`).
-/// The top-level `success: true` from `make_request` is **not** the router verdict.
-/// Observed on MF286R: `"0"` = ok, `"1"` = wrong password.
+/// The top-level `success: true` from `make_request` is transport-only until validated.
+/// Observed on MF286R: `"0"` = ok, `"1"` = wrong password (login).
 pub fn zte_post_result(wrapped: &serde_json::Value) -> Option<String> {
     let result = wrapped.get("_orig")?.get("result")?;
     if let Some(s) = result.as_str() {
@@ -51,11 +51,60 @@ pub fn zte_post_result(wrapped: &serde_json::Value) -> Option<String> {
     None
 }
 
+fn is_zte_command_success_code(code: &str) -> bool {
+    matches!(code.to_ascii_lowercase().as_str(), "0" | "ok" | "success")
+}
+
+/// After a POST `make_request` wrap, require a real ZTE `_orig.result` success code.
+/// Returns `{ success: true, result }` so UI checks of `success` stay valid and truthful.
+pub fn require_zte_command_ok(
+    wrapped: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let Some(code) = zte_post_result(&wrapped) else {
+        return Err("Router command failed: missing _orig.result".to_string());
+    };
+    if !is_zte_command_success_code(&code) {
+        return Err(format!("Router command failed: result code {}", code));
+    }
+    Ok(serde_json::json!({
+        "success": true,
+        "result": code,
+    }))
+}
+
 fn auth_ok_response(router_result: &str) -> serde_json::Value {
     serde_json::json!({
         "result": router_result,
         "verified": true,
+        "telemetry_ok": true,
     })
+}
+
+fn is_valid_router_host(host: &str) -> bool {
+    let host = host.trim();
+    if host.is_empty() || host.len() > 253 {
+        return false;
+    }
+    // Strip optional :port for validation of the host part
+    let host_only = host.rsplit_once(':').map(|(h, port)| {
+        if port.chars().all(|c| c.is_ascii_digit()) && !port.is_empty() {
+            h
+        } else {
+            host
+        }
+    }).unwrap_or(host);
+
+    let parts: Vec<&str> = host_only.split('.').collect();
+    if parts.len() == 4 && parts.iter().all(|p| !p.is_empty() && p.parse::<u8>().is_ok()) {
+        return true;
+    }
+
+    host_only
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+        && !host_only.starts_with('-')
+        && !host_only.starts_with('.')
+        && host_only.chars().any(|c| c.is_ascii_alphanumeric())
 }
 
 /// Sends a LOGIN_MULTI_USER POST with the given password (Base64-encoded).
@@ -116,7 +165,28 @@ pub async fn login_inner(state: &AppState) -> Result<serde_json::Value, String> 
         return Err("Login failed: session not established".to_string());
     }
 
-    println!("✅ Login verified successfully.");
+    // Post-login telemetry GET must show auth-gated fields.
+    let telemetry = match fetch_router_data_inner(state, "hardware_version,network_provider").await {
+        Ok(v) => v,
+        Err(e) => {
+            reset_session(state)?;
+            return Err(format!("Login failed: telemetry not available after login ({})", e));
+        }
+    };
+    let hw = telemetry
+        .get("hardware_version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let provider = telemetry
+        .get("network_provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if hw.is_empty() && provider.is_empty() {
+        reset_session(state)?;
+        return Err("Login failed: telemetry not available after login".to_string());
+    }
+
+    println!("✅ Login verified successfully (telemetry ok).");
     Ok(auth_ok_response(&code))
 }
 
@@ -226,6 +296,10 @@ pub fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
 
 #[tauri::command]
 pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Result<(), String> {
+    if !is_valid_router_host(&config.router_ip) {
+        return Err("Invalid router_ip: expected IPv4 or hostname".to_string());
+    }
+
     {
         let mut cfg = state
             .config
@@ -241,7 +315,13 @@ pub async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Resul
         .await
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
-    println!("⚙️ Config saved successfully: {:?}", config);
+    println!(
+        "⚙️ Config saved successfully: router_ip={}, auto_refresh_interval={}, auto_refresh_on_startup={}, main_window_on_startup={}",
+        config.router_ip,
+        config.auto_refresh_interval,
+        config.auto_refresh_on_startup,
+        config.main_window_on_startup
+    );
     Ok(())
 }
 
@@ -330,12 +410,12 @@ pub async fn disconnect_network(state: State<'_, AppState>) -> Result<serde_json
     payload.insert("isTest".to_string(), "false".to_string());
     payload.insert("notCallback".to_string(), "true".to_string());
     payload.insert("goformId".to_string(), "DISCONNECT_NETWORK".to_string());
-    payload.insert("AD".to_string(), ad.clone());
+    payload.insert("AD".to_string(), ad);
 
-    println!("🔌 Sending DISCONNECT_NETWORK command with AD={}...", ad);
-    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    println!("🔌 Sending DISCONNECT_NETWORK command...");
+    let wrapped = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    let result = require_zte_command_ok(wrapped)?;
     println!("🔌 Disconnection response: {:?}", result);
-
     Ok(result)
 }
 
@@ -348,12 +428,12 @@ pub async fn connect_network(state: State<'_, AppState>) -> Result<serde_json::V
     payload.insert("isTest".to_string(), "false".to_string());
     payload.insert("notCallback".to_string(), "true".to_string());
     payload.insert("goformId".to_string(), "CONNECT_NETWORK".to_string());
-    payload.insert("AD".to_string(), ad.clone());
+    payload.insert("AD".to_string(), ad);
 
-    println!("🔌 Sending CONNECT_NETWORK command with AD={}...", ad);
-    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    println!("🔌 Sending CONNECT_NETWORK command...");
+    let wrapped = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    let result = require_zte_command_ok(wrapped)?;
     println!("🔌 Connection response: {:?}", result);
-
     Ok(result)
 }
 
@@ -373,14 +453,14 @@ pub async fn set_bearer_preference(
     payload.insert("isTest".to_string(), "false".to_string());
     payload.insert("goformId".to_string(), "SET_BEARER_PREFERENCE".to_string());
     payload.insert("BearerPreference".to_string(), preference.clone());
-    payload.insert("AD".to_string(), ad.clone());
+    payload.insert("AD".to_string(), ad);
 
     println!(
-        "🔌 Sending SET_BEARER_PREFERENCE command with BearerPreference={} and AD={}...",
-        preference, ad
+        "🔌 Sending SET_BEARER_PREFERENCE command with BearerPreference={}...",
+        preference
     );
-    let result = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    let wrapped = make_request(&state, "/goform_set_cmd_process", Some(payload), "POST").await?;
+    let result = require_zte_command_ok(wrapped)?;
     println!("🔌 Bearer preference response: {:?}", result);
-
     Ok(result)
 }

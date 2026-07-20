@@ -182,11 +182,12 @@ async fn live_read_only_login_telemetry_logout() {
 
     // --- B: login with password from .env.e2e (never try a wrong password — lockout) ---
     // Successful LOGIN_MULTI_USER returns _orig.result "0"; login_inner unwraps to
-    // { "result": "0", "verified": true } after hardware_version confirm.
+    // { "result": "0", "verified": true, "telemetry_ok": true } after hardware_version
+    // confirm AND a post-login telemetry GET (hardware_version / network_provider).
     let good_login = login_inner(&state)
         .await
         .expect("login_inner with password from .env.e2e");
-    dump("B: login_inner success (result 0 + verified)", &good_login);
+    dump("B: login_inner success (result 0 + verified + telemetry_ok)", &good_login);
     assert_eq!(
         good_login.get("result").and_then(|v| v.as_str()),
         Some("0"),
@@ -199,6 +200,12 @@ async fn live_read_only_login_telemetry_logout() {
         "expected verified:true after successful login, got: {}",
         good_login
     );
+    assert_eq!(
+        good_login.get("telemetry_ok").and_then(|v| v.as_bool()),
+        Some(true),
+        "expected telemetry_ok:true after successful login, got: {}",
+        good_login
+    );
     assert!(
         verify_login_status(&state)
             .await
@@ -206,11 +213,11 @@ async fn live_read_only_login_telemetry_logout() {
         "session should be active after successful login"
     );
 
-    // --- C: telemetry while logged in ---
+    // --- C: post-login telemetry GET health check ---
     let telemetry = fetch_router_data_inner(&state, TELEMETRY_COMMANDS)
         .await
         .expect("telemetry while logged in");
-    dump("C: telemetry while logged in", &telemetry);
+    dump("C: telemetry while logged in (post-login GET health)", &telemetry);
     assert_ne!(
         telemetry.get("result").and_then(|v| v.as_str()),
         Some("not_login"),
@@ -228,7 +235,7 @@ async fn live_read_only_login_telemetry_logout() {
         .unwrap_or(false);
     assert!(
         has_provider || has_hw,
-        "expected network_provider or hardware_version after login, got: {}",
+        "post-login telemetry GET must expose network_provider or hardware_version, got: {}",
         telemetry
     );
 

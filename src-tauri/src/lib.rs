@@ -81,10 +81,24 @@ pub async fn make_request(
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
+    let status = response.status();
     let body = response
         .text()
         .await
         .map_err(|e| format!("Failed to read response body: {}", e))?;
+
+    if !status.is_success() {
+        let snippet: String = body.chars().take(200).collect();
+        return Err(format!(
+            "HTTP {}: {}",
+            status.as_u16(),
+            if snippet.is_empty() {
+                "(empty body)".to_string()
+            } else {
+                snippet
+            }
+        ));
+    }
 
     if body.to_lowercase().contains("<html") {
         return Ok(serde_json::json!({ "result": "not_login" }));
@@ -137,7 +151,6 @@ pub fn create_app_state(config: AppConfig, config_path: std::path::PathBuf) -> R
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             // Find application config directory
             let config_dir = app.path().app_config_dir().map_err(|e| {

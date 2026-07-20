@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useRouterState } from '../context/RouterStateContext';
+import { useState, useEffect } from "react";
+import { useRouterState } from "../context/RouterStateContext";
 
 export default function SettingsModal() {
   const {
@@ -19,6 +19,7 @@ export default function SettingsModal() {
   const [autoRefreshOnStartup, setAutoRefreshOnStartup] = useState(initialAutoRefreshOnStartup);
   const [mainWindowOnStartup, setMainWindowOnStartup] = useState(initialMainWindowOnStartup);
   const [isSaving, setIsSaving] = useState(false);
+  const [ipError, setIpError] = useState("");
 
   // Sync state with props when modal opens
   useEffect(() => {
@@ -28,34 +29,49 @@ export default function SettingsModal() {
       setAutoRefreshInterval(initialAutoRefreshInterval);
       setAutoRefreshOnStartup(initialAutoRefreshOnStartup);
       setMainWindowOnStartup(initialMainWindowOnStartup);
+      setIpError("");
     }
-  }, [
-    isSettingsOpen,
-    initialIp,
-    initialPassword,
-    initialAutoRefreshInterval,
-    initialAutoRefreshOnStartup,
-    initialMainWindowOnStartup,
-  ]);
+  }, [isSettingsOpen, initialIp, initialPassword, initialAutoRefreshInterval, initialAutoRefreshOnStartup, initialMainWindowOnStartup]);
+
+  const isValidRouterHost = (host: string): boolean => {
+    const trimmed = host.trim();
+    if (!trimmed || trimmed.length > 253) return false;
+    const hostOnly = (() => {
+      const idx = trimmed.lastIndexOf(":");
+      if (idx > 0) {
+        const port = trimmed.slice(idx + 1);
+        if (/^\d+$/.test(port)) return trimmed.slice(0, idx);
+      }
+      return trimmed;
+    })();
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostOnly)) {
+      return hostOnly.split(".").every((o) => {
+        const n = Number(o);
+        return o.length > 0 && n >= 0 && n <= 255;
+      });
+    }
+    return /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(hostOnly);
+  };
 
   const handleSave = async () => {
+    if (!isValidRouterHost(ip)) {
+      setIpError("Enter a valid IPv4 address or hostname");
+      return;
+    }
+    setIpError("");
     setIsSaving(true);
     try {
-      await onSave(ip, password, autoRefreshInterval, autoRefreshOnStartup, mainWindowOnStartup);
+      await onSave(ip.trim(), password, autoRefreshInterval, autoRefreshOnStartup, mainWindowOnStartup);
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div
-      id="settingsOverlay"
-      data-tauri-drag-region
-      className={`fullscreen-overlay ${isSettingsOpen ? 'active' : ''}`}
-    >
-      <div className="overlay-card" style={{ maxWidth: '480px' }}>
+    <div id="settingsOverlay" data-tauri-drag-region className={`fullscreen-overlay ${isSettingsOpen ? "active" : ""}`}>
+      <div className="overlay-card" style={{ maxWidth: "480px" }}>
         <h2 className="overlay-title">Router Settings</h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '0.5rem', textAlign: 'left', width: '100%' }}>
+        <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", marginBottom: "0.5rem", textAlign: "left", width: "100%" }}>
           Provide the IP address, admin credentials, and application behavior settings.
         </p>
         <div className="settings-form">
@@ -67,8 +83,14 @@ export default function SettingsModal() {
               className="form-input"
               placeholder="192.168.0.1"
               value={ip}
-              onChange={(e) => setIp(e.target.value)}
+              onChange={(e) => {
+                setIp(e.target.value);
+                setIpError("");
+              }}
             />
+            {ipError ? (
+              <p style={{ color: "var(--danger, #ef4444)", fontSize: "0.75rem", marginTop: "0.35rem", textAlign: "left" }}>{ipError}</p>
+            ) : null}
           </div>
           <div className="form-group">
             <label htmlFor="settingsPassword">Admin Password</label>
@@ -81,7 +103,7 @@ export default function SettingsModal() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="settingsInterval">Auto Refresh Polling Interval (ms)</label>
             <input
@@ -95,15 +117,18 @@ export default function SettingsModal() {
             />
           </div>
 
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.6rem', marginTop: '0.2rem' }}>
+          <div
+            className="form-group"
+            style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", marginTop: "0.2rem" }}
+          >
             <input
               type="checkbox"
               id="settingsAutoRefreshOnStartup"
-              style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--accent-primary)' }}
+              style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--accent-primary)" }}
               checked={autoRefreshOnStartup}
               onChange={(e) => setAutoRefreshOnStartup(e.target.checked)}
             />
-            <label htmlFor="settingsAutoRefreshOnStartup" style={{ cursor: 'pointer', textTransform: 'none', marginBottom: 0 }}>
+            <label htmlFor="settingsAutoRefreshOnStartup" style={{ cursor: "pointer", textTransform: "none", marginBottom: 0 }}>
               Auto Refresh on Startup
             </label>
           </div>
@@ -113,7 +138,7 @@ export default function SettingsModal() {
             <select
               id="settingsMainWindowOnStartup"
               className="form-input"
-              style={{ background: 'rgba(0, 0, 0, 0.4)', color: 'var(--text-main)', cursor: 'pointer' }}
+              style={{ background: "rgba(0, 0, 0, 0.4)", color: "var(--text-main)", cursor: "pointer" }}
               value={mainWindowOnStartup}
               onChange={(e) => setMainWindowOnStartup(e.target.value)}
             >
@@ -123,21 +148,11 @@ export default function SettingsModal() {
           </div>
 
           <div className="form-actions">
-            <button
-              id="settingsCancelBtn"
-              onClick={() => setIsSettingsOpen(false)}
-              className="btn btn-secondary"
-              disabled={isSaving}
-            >
+            <button id="settingsCancelBtn" onClick={() => setIsSettingsOpen(false)} className="btn btn-secondary" disabled={isSaving}>
               Cancel
             </button>
-            <button
-              id="settingsSaveBtn"
-              onClick={handleSave}
-              className="btn btn-primary"
-              disabled={isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
+            <button id="settingsSaveBtn" onClick={handleSave} className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>

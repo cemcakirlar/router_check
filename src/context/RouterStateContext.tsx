@@ -30,6 +30,22 @@ function isAuthOk(result: AuthCommandResult | null | undefined): boolean {
   return !!result && (result.verified === true || result.result === "0");
 }
 
+function isCommandOk(result: { result?: string; success?: boolean } | null | undefined): boolean {
+  if (!result) return false;
+  if (result.success === true) return true;
+  const code = (result.result || "").toLowerCase();
+  return code === "0" || code === "ok" || code === "success";
+}
+
+function isPppDisconnected(ppp: string): boolean {
+  return ppp.toLowerCase().includes("disconnected");
+}
+
+function isPppConnected(ppp: string): boolean {
+  const lower = ppp.toLowerCase();
+  return lower.includes("connected") && !lower.includes("disconnected");
+}
+
 function authErrorMessage(e: unknown, fallback: string): string {
   if (typeof e === "string" && e.trim()) return e;
   if (e && typeof e === "object" && "message" in e) {
@@ -248,7 +264,15 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
     }, 2000);
   };
 
-  const addLog = (field: string, oldValue: string, newValue: string, rsrpVal: string, sinrVal: string, cellIdVal: string, networkTypeVal: string) => {
+  const addLog = (
+    field: string,
+    oldValue: string,
+    newValue: string,
+    rsrpVal: string,
+    sinrVal: string,
+    cellIdVal: string,
+    networkTypeVal: string,
+  ) => {
     const newLog: ChangeLogEntry = {
       id: `${Date.now()}-${Math.random()}`,
       timestamp: new Date().toLocaleString(),
@@ -338,7 +362,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
         if (!newVal) return prevVal;
 
         if (prevVal === undefined) {
-          addLog(label, "", newVal, rsrpStr, sinrStr, cellIdVal, networkTypeVal);
+          // First sample: seed baseline without logging a "change"
           return newVal;
         }
 
@@ -469,8 +493,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
     setIsDisconnecting(true);
     try {
       const result = await fnCall<{ result: string; success?: boolean }>("disconnect_network");
-      const success = result && (result.success || result.result === "0" || result.result === "ok" || result.result === "success");
-      if (success) {
+      if (isCommandOk(result)) {
         showToast("Disconnection request sent!", "success");
         let attempts = 0;
         const pollDisconnection = async () => {
@@ -481,7 +504,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
             if (data) {
               setRouterData(data);
               const ppp = data.ppp_status || "";
-              if (ppp.includes("disconnected") || ppp === "") {
+              if (isPppDisconnected(ppp)) {
                 refresh();
                 return;
               }
@@ -506,8 +529,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
     setIsConnecting(true);
     try {
       const result = await fnCall<{ result: string; success?: boolean }>("connect_network");
-      const success = result && (result.success || result.result === "0" || result.result === "ok" || result.result === "success");
-      if (success) {
+      if (isCommandOk(result)) {
         showToast("Connection request sent!", "success");
         let attempts = 0;
         const pollConnection = async () => {
@@ -518,7 +540,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
             if (data) {
               setRouterData(data);
               const ppp = data.ppp_status || "";
-              if (ppp.includes("connected") && !ppp.includes("disconnected")) {
+              if (isPppConnected(ppp)) {
                 refresh();
                 return;
               }
@@ -543,8 +565,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
     setIsSettingBearer(true);
     try {
       const result = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference });
-      const success = result && (result.success || result.result === "0" || result.result === "ok" || result.result === "success");
-      if (success) {
+      if (isCommandOk(result)) {
         showToast(`Bearer preference set to ${preference}!`, "success");
         refresh();
       } else {
@@ -562,6 +583,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
 
     abortRecoveryRef.current = false;
     setRecoveryLogs([]);
+    let bearerChanged = false;
     const wasAutoRefresh = autoRefresh;
     if (autoRefresh) {
       setAutoRefresh(false);
@@ -585,9 +607,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       setRecoveryStep("disconnecting");
       log("Disconnecting network...");
       const discResult = await fnCall<{ result: string; success?: boolean }>("disconnect_network");
-      const discSuccess =
-        discResult && (discResult.success || discResult.result === "0" || discResult.result === "ok" || discResult.result === "success");
-      if (!discSuccess) {
+      if (!isCommandOk(discResult)) {
         throw new Error("Disconnect command failed");
       }
       checkAborted();
@@ -603,7 +623,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
         if (data) {
           const ppp = data.ppp_status || "";
           log(`Verifying disconnect (attempt ${i + 1}/20) - status: ${ppp || "empty"}`);
-          if (ppp.includes("disconnected") || ppp === "") {
+          if (isPppDisconnected(ppp)) {
             discVerified = true;
             break;
           }
@@ -619,11 +639,10 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       setRecoveryStep("setting_3g");
       log("Switching bearer preference to Only 3G/WCDMA...");
       const set3gResult = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference: "Only_WCDMA" });
-      const set3gSuccess =
-        set3gResult && (set3gResult.success || set3gResult.result === "0" || set3gResult.result === "ok" || set3gResult.result === "success");
-      if (!set3gSuccess) {
+      if (!isCommandOk(set3gResult)) {
         throw new Error("Failed to set preference to Only WCDMA");
       }
+      bearerChanged = true;
       checkAborted();
       await sleep(2000);
 
@@ -660,10 +679,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       setRecoveryStep("setting_auto");
       log("Restoring bearer preference to Auto...");
       const setAutoResult = await fnCall<{ result: string; success?: boolean }>("set_bearer_preference", { preference: "NETWORK_auto" });
-      const setAutoSuccess =
-        setAutoResult &&
-        (setAutoResult.success || setAutoResult.result === "0" || setAutoResult.result === "ok" || setAutoResult.result === "success");
-      if (!setAutoSuccess) {
+      if (!isCommandOk(setAutoResult)) {
         throw new Error("Failed to restore preference to Auto");
       }
       checkAborted();
@@ -703,9 +719,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       setRecoveryStep("connecting");
       log("Connecting network...");
       const connResult = await fnCall<{ result: string; success?: boolean }>("connect_network");
-      const connSuccess =
-        connResult && (connResult.success || connResult.result === "0" || connResult.result === "ok" || connResult.result === "success");
-      if (!connSuccess) {
+      if (!isCommandOk(connResult)) {
         throw new Error("Connect command failed");
       }
       checkAborted();
@@ -721,7 +735,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
         if (data) {
           const ppp = data.ppp_status || "";
           log(`Verifying connect (attempt ${i + 1}/20) - status: ${ppp}`);
-          if (ppp.includes("connected") && !ppp.includes("disconnected")) {
+          if (isPppConnected(ppp)) {
             connVerified = true;
             break;
           }
@@ -735,26 +749,43 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       setRecoveryStep("completed");
       log("Cell recovery sequence completed successfully!");
       showToast("Cell recovery completed successfully!", "success");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = authErrorMessage(err, String(err));
+      const aborted = abortRecoveryRef.current || msg.toLowerCase().includes("aborted");
       console.error("Cell recovery failed:", err);
-      setRecoveryStep("failed");
-      log(`Recovery failed: ${err.message || err}`);
-      showToast(`Cell recovery failed: ${err.message || err}`, "error");
+
+      if (aborted) {
+        log("Recovery aborted by user");
+        if (bearerChanged) {
+          log("Best-effort restore: NETWORK_auto + connect...");
+          try {
+            await fnCall("set_bearer_preference", { preference: "NETWORK_auto" });
+            await fnCall("connect_network");
+            log("Restore commands sent");
+          } catch (restoreErr) {
+            const restoreMsg = authErrorMessage(restoreErr, String(restoreErr));
+            log(`Restore failed: ${restoreMsg}`);
+            showToast(`Recovery aborted; restore failed: ${restoreMsg}`, "error");
+          }
+        }
+        setRecoveryStep("idle");
+        showToast("Cell recovery sequence aborted", "info");
+      } else {
+        setRecoveryStep("failed");
+        log(`Recovery failed: ${msg}`);
+        showToast(`Cell recovery failed: ${msg}`, "error");
+      }
     } finally {
-      // Restore auto-refresh
       if (wasAutoRefresh) {
         setAutoRefresh(true);
       }
-      // Trigger a final refresh to get latest statistics
       refresh();
     }
   };
 
   const handleAbortRecovery = () => {
     abortRecoveryRef.current = true;
-    setRecoveryStep("idle");
-    showToast("Cell recovery sequence aborted", "info");
-    refresh();
+    showToast("Aborting cell recovery…", "info");
   };
 
   const dismissRecovery = () => {
@@ -763,9 +794,14 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
   };
 
   const handleSaveSettings = async (ip: string, pass: string, interval: number, refreshOnStartup: boolean, windowOnStartup: string) => {
+    const trimmedIp = ip.trim();
+    if (!trimmedIp) {
+      showToast("Router IP is required", "error");
+      return;
+    }
     try {
       const config = {
-        router_ip: ip,
+        router_ip: trimmedIp,
         router_password: pass,
         auto_refresh_interval: interval,
         auto_refresh_on_startup: refreshOnStartup,
@@ -776,7 +812,7 @@ export function RouterStateProvider({ children }: { children: ReactNode }) {
       // Invalidate old session and clear local cookie jar
       await fnCall("logout").catch(() => null);
 
-      setRouterIp(ip);
+      setRouterIp(trimmedIp);
       setRouterPassword(pass);
       setAutoRefreshInterval(interval);
       setAutoRefreshOnStartup(refreshOnStartup);
