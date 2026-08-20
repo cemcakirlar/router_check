@@ -3,6 +3,7 @@
   "version": "1.0.1",
   "description": "ZTE Router Dashboard",
   "scripts": {
+    "install:deps": "npm install",
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
